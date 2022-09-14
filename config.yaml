@@ -82,13 +82,13 @@ params:
     enable: yes
     showcase:
       - image: pic01.jpg
-        subtitle: Ipsum Dolor Sit Amet
-        title: Aliquam
-        url: blogs/aliquam
+        subtitle: A short biographie
+        title: About me
+        url: blogs/about_me
       - image: pic02.jpg
         subtitle: Feugiat Amet Tempus
-        title: Tempus
-        url: blogs/tempus
+        title: CV
+        url: blogs/cv
       - image: pic03.jpg
         subtitle: Lorem Etiam Nullam
         title: Magna
