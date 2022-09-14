@@ -8,15 +8,14 @@ params:
   banner:
     buttonText: Get Started
     subtitle: |-
-      A RESPONSIVE SITE TEMPLATE DESIGNED BY HTML5 UP
-      AND RELEASED UNDER THE CREATIVE COMMONS.
+      A RESPONSIVE SITE TO PRESNT MYSELF AND MY PROJECTS.
     title: Hi, my name is Manon Pillot
   blog: {}
   contact:
     address:
       - city: Geneva, 1206
         country: Switzerland
-        street: Avenue Léon Gaud
+        street: Avenue Léon Gaud 5
         title: Address
     buttonClear: Clear
     buttonSend: Send message
@@ -42,12 +41,12 @@ params:
         text: 'Design: '
         url: https://www.html5up.net
     social:
-      - #icon: fa-twitter
-        #label: Twitter
-        #url: https://www.twitter.com
-      - #icon: fa-facebook
-        #label: Facebook
-        #url: https://www.facebook.com
+      - icon: fa-twitter
+        label: Twitter
+        url: https://www.twitter.com
+      - icon: fa-facebook
+        label: Facebook
+        url: https://www.facebook.com
       - icon: fa-instagram
         label: Instagram
         url: https://www.instagram.com/manon_pillot/?hl=fr
@@ -85,7 +84,7 @@ params:
         subtitle: A short biographie
         title: About me
         url: blogs/about_me
-      - image: pic02.jpg
+      - image: manon_pillot.png
         subtitle: Download my CV
         title: CV
         url: blogs/cv
