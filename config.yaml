@@ -91,11 +91,11 @@ params:
       - image: omega.jpg
         subtitle: Omega analysis
         title: Project 1
-        url: blogs/homework_omega.Rmd
+        url: blogs/homework_omega
       - image: energy.jpg
         subtitle: Share of renewable energy production in the world
         title: Project 2
-        url: blogs/project_2
+        url: blogs/homework_energy
       - image: thesis.jpg
         subtitle: ESPORT vs. SPORT TRADITIONNEL
         title: Thesis
