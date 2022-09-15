@@ -107,6 +107,6 @@ params:
   two:
     buttonText: Get Started
     enable: yes
-    subtitle: "Thank you for visiting my website.Feel free to add me on social media."
+    subtitle: "Thank you for visiting my website. Feel free to add me on social media."
     title: Contacts
     url: blogs
