@@ -1,0 +1,308 @@
+---
+categories:  
+- ""    #the front matter should be like the one found in, e.g., blog2.md. It cannot be like the normal Rmd we used
+- ""
+date: "2021-09-30"
+description: Risk-Return of DJIA stocks # the title that will show up once someone gets to this page
+draft: false
+image: spices.jpg # save picture in \static\img\blogs. Acceptable formats= jpg, jpeg, or png . Your iPhone pics wont work
+
+keywords: ""
+slug: risk_return # slug is the shorthand URL address... no spaces plz
+title: Risk-Return of DJIA stocks
+---
+
+
+
+<div id="omega-group-plc--pay-discrimination" class="section level1">
+<h1>Omega Group plc- Pay Discrimination</h1>
+<p>You are asked to carry out the analysis. The objective is to find out whether there is indeed a significant difference between the salaries of men and women, and whether the difference is due to discrimination or whether it is based on another, possibly valid, determining factor.</p>
+<p>Loading the data:</p>
+<pre class="r"><code>omega &lt;- read_csv(here::here(&quot;data&quot;, &quot;omega.csv&quot;))
+glimpse(omega) # examine the data frame</code></pre>
+<pre><code>## Rows: 50
+## Columns: 3
+## $ salary     &lt;dbl&gt; 81894, 69517, 68589, 74881, 65598, 76840, 78800, 70033, 635…
+## $ gender     &lt;chr&gt; &quot;male&quot;, &quot;male&quot;, &quot;male&quot;, &quot;male&quot;, &quot;male&quot;, &quot;male&quot;, &quot;male&quot;, &quot;ma…
+## $ experience &lt;dbl&gt; 16, 25, 15, 33, 16, 19, 32, 34, 1, 44, 7, 14, 33, 19, 24, 3…</code></pre>
+<div id="relationship-salary---gender" class="section level2">
+<h2>Relationship Salary - Gender ?</h2>
+<pre class="r"><code># Summary Statistics of salary by gender
+kable(favstats (salary ~ gender, data=omega))</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">gender</th>
+<th align="right">min</th>
+<th align="right">Q1</th>
+<th align="right">median</th>
+<th align="right">Q3</th>
+<th align="right">max</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">n</th>
+<th align="right">missing</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">female</td>
+<td align="right">47033</td>
+<td align="right">60338</td>
+<td align="right">64618</td>
+<td align="right">70033</td>
+<td align="right">78800</td>
+<td align="right">64543</td>
+<td align="right">7567</td>
+<td align="right">26</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">male</td>
+<td align="right">54768</td>
+<td align="right">68331</td>
+<td align="right">74675</td>
+<td align="right">78568</td>
+<td align="right">84576</td>
+<td align="right">73239</td>
+<td align="right">7463</td>
+<td align="right">24</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Dataframe with two rows (male-female) and having as columns gender, mean, SD, sample size, 
+# the t-critical value, the standard error, the margin of error, 
+# and the low/high endpoints of a 95% condifence interval
+
+ci_omega &lt;- omega %&gt;% 
+  group_by(gender) %&gt;% 
+  summarize(mean = mean(salary, na.rm=TRUE),
+            sd = sd(salary, na.rm=TRUE),
+            count = n(),
+            t_critical = qt(0.975, count-1),
+            se_diff = sd/sqrt(count),
+            margin_of_error = t_critical * se_diff,
+            salary_low = mean - margin_of_error,
+            salary_high = mean + margin_of_error)
+
+# print the table with confidence interval
+
+kable(ci_omega,
+      caption=&quot;Salary CI by Gender&quot;)</code></pre>
+<table>
+<caption>(#tab:confint_single_valiables)Salary CI by Gender</caption>
+<colgroup>
+<col width="8%" />
+<col width="7%" />
+<col width="6%" />
+<col width="7%" />
+<col width="13%" />
+<col width="9%" />
+<col width="19%" />
+<col width="13%" />
+<col width="14%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">gender</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">count</th>
+<th align="right">t_critical</th>
+<th align="right">se_diff</th>
+<th align="right">margin_of_error</th>
+<th align="right">salary_low</th>
+<th align="right">salary_high</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">female</td>
+<td align="right">64543</td>
+<td align="right">7567</td>
+<td align="right">26</td>
+<td align="right">2.06</td>
+<td align="right">1484</td>
+<td align="right">3056</td>
+<td align="right">61486</td>
+<td align="right">67599</td>
+</tr>
+<tr class="even">
+<td align="left">male</td>
+<td align="right">73239</td>
+<td align="right">7463</td>
+<td align="right">24</td>
+<td align="right">2.07</td>
+<td align="right">1523</td>
+<td align="right">3151</td>
+<td align="right">70088</td>
+<td align="right">76390</td>
+</tr>
+</tbody>
+</table>
+<p>What can you conclude from your analysis? A couple of sentences would be enough</p>
+<p><strong>Answer:</strong><br />
+The two confidence interval for women and men salary of a 95% do not overlap. The difference in salary between the two groups is thus significantly different. The t-test would thus not be needed in this case.</p>
+</div>
+<div id="relationship-salary---gender-hypothesis-test-t.test-infer" class="section level2">
+<h2>Relationship Salary - Gender Hypothesis Test (t.test + infer)</h2>
+<pre class="r"><code># hypothesis testing using t.test() 
+
+t.test(salary ~ gender, data = omega)</code></pre>
+<pre><code>## 
+##  Welch Two Sample t-test
+## 
+## data:  salary by gender
+## t = -4, df = 48, p-value = 2e-04
+## alternative hypothesis: true difference in means between group female and group male is not equal to 0
+## 95 percent confidence interval:
+##  -12973  -4420
+## sample estimates:
+## mean in group female   mean in group male 
+##                64543                73239</code></pre>
+<pre class="r"><code># hypothesis testing using infer package
+
+#Calculating observed statistic
+obs_stat &lt;- omega %&gt;%
+  specify(salary ~ gender) %&gt;%
+  calculate(stat = &quot;diff in means&quot;,
+            order = c(&quot;female&quot;, &quot;male&quot;))
+
+set.seed(1234)
+salaries_in_null_world &lt;- omega %&gt;% 
+  
+  #Which variable we are interested in
+  specify(salary ~ gender) %&gt;% 
+  
+  #Hypothesis with no (null) difference
+  hypothesize(null = &quot;independence&quot;) %&gt;% 
+  
+  #Create simulated samples
+  generate(reps = 10000, type = &quot;permute&quot;) %&gt;% 
+  
+  #Mean difference in each sample
+  calculate(stat = &quot;diff in means&quot;,
+            order = c(&quot;female&quot;, &quot;male&quot;)) # give the order for subtraction first, second
+
+#Visualize distribution  
+salaries_in_null_world %&gt;% visualize()+
+  shade_p_value(obs_stat = obs_stat, direction = &quot;both&quot;) </code></pre>
+<p><img src="/blogs/homework_omega_files/figure-html/hypothesis_testing-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>salaries_in_null_world %&gt;% 
+  get_p_value(obs_stat = obs_stat, direction = &quot;both&quot;)</code></pre>
+<pre><code>## # A tibble: 1 × 1
+##   p_value
+##     &lt;dbl&gt;
+## 1  0.0002</code></pre>
+<p>What can you conclude from your analysis? A couple of sentences would be enough</p>
+<p><strong>Answer</strong>:<br />
+</p>
+<p>The R t-test clearly showed that the null hypothesis (no difference) can be rejected. This can be seen by three indicators: first the |t-stat| is approximately &gt; 2, second the CI for delta does not contain zero, third the p-value is &lt; 5%.<br />
+With 1000 reps the bootstrap simulation gave a p-value of zero, this can be the case when the observed statistic is very unlikely. We thus had to increase the reps to 10000 to replicate the results from the formula.</p>
+</div>
+<div id="relationship-experience---gender" class="section level2">
+<h2>Relationship Experience - Gender?</h2>
+<pre class="r"><code># Summary Statistics of salary by gender
+favstats (experience ~ gender, data=omega)</code></pre>
+<pre><code>##   gender min    Q1 median   Q3 max  mean    sd  n missing
+## 1 female   0  0.25    3.0 14.0  29  7.38  8.51 26       0
+## 2   male   1 15.75   19.5 31.2  44 21.12 10.92 24       0</code></pre>
+<p>Based on this evidence, can you conclude that there is a significant difference between the experience of the male and female executives? Does your conclusion validate or endanger your conclusion about the difference in male and female salaries?</p>
+<pre class="r"><code>#Using formula to create confidence interval
+
+ci_omega_experience &lt;- omega %&gt;% 
+  group_by(gender) %&gt;% 
+  summarize(mean = mean(experience, na.rm=TRUE),
+            sd = sd(experience, na.rm=TRUE),
+            count = n(),
+            t_critical = qt(0.975, count-1),
+            se_diff = sd/sqrt(count),
+            margin_of_error = t_critical * se_diff,
+            experience_low = mean - margin_of_error,
+            experience_high = mean + margin_of_error)
+
+# print the table with confidence interval
+
+kable(ci_omega_experience,
+      caption=&quot;Experience CI by Gender&quot;)</code></pre>
+<table>
+<caption>(#tab:ci_experience)Experience CI by Gender</caption>
+<colgroup>
+<col width="7%" />
+<col width="6%" />
+<col width="6%" />
+<col width="6%" />
+<col width="12%" />
+<col width="8%" />
+<col width="17%" />
+<col width="16%" />
+<col width="17%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">gender</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">count</th>
+<th align="right">t_critical</th>
+<th align="right">se_diff</th>
+<th align="right">margin_of_error</th>
+<th align="right">experience_low</th>
+<th align="right">experience_high</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">female</td>
+<td align="right">7.38</td>
+<td align="right">8.51</td>
+<td align="right">26</td>
+<td align="right">2.06</td>
+<td align="right">1.67</td>
+<td align="right">3.44</td>
+<td align="right">3.95</td>
+<td align="right">10.8</td>
+</tr>
+<tr class="even">
+<td align="left">male</td>
+<td align="right">21.12</td>
+<td align="right">10.92</td>
+<td align="right">24</td>
+<td align="right">2.07</td>
+<td align="right">2.23</td>
+<td align="right">4.61</td>
+<td align="right">16.52</td>
+<td align="right">25.7</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Answer:</strong><br />
+</p>
+<p>The two experience confidence intervals for women and men at 95% do not overlap. The difference between the two groups is thus significantly different and there is no need to run a t-test. These findings would endager the conclusion drawn above (gender-based salary discrimination) as it seems that not only gender, but an additional previously not considered factor, experience, could influence the pay-gap. Further anaylsis is suggested.</p>
+</div>
+<div id="relationship-salary---experience" class="section level2">
+<h2>Relationship Salary - Experience ?</h2>
+<p>Someone at the meeting argues that clearly, a more thorough analysis of the relationship between salary and experience is required before any conclusion can be drawn about whether there is any gender-based salary discrimination in the company.</p>
+<p>Analyse the relationship between salary and experience. Draw a scatterplot to visually inspect the data</p>
+<pre class="r"><code>ggplot(omega, aes(x = experience, y = salary, color = gender)) +
+  geom_point()+
+  geom_smooth(method=&#39;lm&#39;, se=FALSE)+
+  labs(
+    title = &quot;Relationship between salary and experience&quot;
+  )+
+  theme_bw()</code></pre>
+<p><img src="/blogs/homework_omega_files/figure-html/salary_exp_scatter-1.png" width="648" style="display: block; margin: auto;" /></p>
+</div>
+<div id="check-correlations-between-gender-experience-and-salary" class="section level2">
+<h2>Check correlations between Gender, Experience and Salary</h2>
+<pre class="r"><code>omega %&gt;% 
+  select(gender, experience, salary) %&gt;% #order variables they will appear in ggpairs()
+  ggpairs(aes(colour=gender, alpha = 0.3))+
+  theme_bw()</code></pre>
+<p><img src="/blogs/homework_omega_files/figure-html/ggpairs-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>Look at the salary vs experience scatterplot. What can you infer from this plot? Explain in a couple of sentences</p>
+<p><strong>Answer:</strong></p>
+<p>The correlation matrix reweals many interesting things in just one visualization. Looking at the scatterplot we can see a clear correlation between years of experience and salary, this is true for both genders. The correlation can also be confirmed mathematically with a total cor of 0.8. In other words, the higher the experience the higher the salary. We have used two colors in the plot above to demonstrate that women salary increase more significantly with growing experience (stepper slope). With women having a median experience of 3 and men of 19.5 it is thus not surprising that there is a significant pay-gap. Omega should rather investigate the underlying reason why women have so little work experience. Are senior positions which require more experience mainly filled by man while graduate positions mainly by women? Anyhow, further investigation is needed!</p>
+</div>
+</div>
