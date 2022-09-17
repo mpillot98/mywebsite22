@@ -62,18 +62,18 @@ params:
     button1:
       - name: Get Started
         url: blogs
-    button2:
-      - name: Log In
-        url: '#'
+    #button2:
+      #- name: Log In
+        #url: '#'
     links:
       - name: Home
         url: '#'
-      - name: Blogs
-        url: blogs
-      - name: Generic Blog
+      - name: About me
         url: blogs/ipsum
-      - name: Elements
-        url: elements.html
+      - name: Project 1
+        url: blogs/homework_omega
+      - name: Project 2
+        url: blogs/homework_energy
     menu: Menu
     subtitle: By HTML5 Up
     title: Forty
@@ -83,11 +83,19 @@ params:
       - image: about_me.jpg
         subtitle: A short biography
         title: About me
-        url: blogs/about_me
+        url: blogs/ipsum
+      - image: thesis.jpg
+        subtitle: ESPORT vs. SPORT TRADITIONNEL
+        title: Thesis
+        url: docs/thesis.pdf
       - image: emoji.jpg
         subtitle: Download my CV
         title: CV
         url: docs/CV.pdf
+      - image: pic06.jpg
+        subtitle: XXXXX
+        title: Cover Letter
+        url: blogs/about_me
       - image: omega.jpg
         subtitle: Omega analysis
         title: Project 1
@@ -96,14 +104,7 @@ params:
         subtitle: Share of renewable energy production in the world
         title: Project 2
         url: blogs/homework_energy
-      - image: thesis.jpg
-        subtitle: ESPORT vs. SPORT TRADITIONNEL
-        title: Thesis
-        url: docs/thesis.pdf
-      - image: pic06.jpg
-        subtitle: Feugiat Amet Tempus
-        title: Etiam
-        url: blogs/ipsum
+
   two:
     buttonText: Get Started
     enable: yes
