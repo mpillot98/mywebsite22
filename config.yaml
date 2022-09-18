@@ -61,7 +61,7 @@ params:
   navigation:
     button1:
       - name: Get Started
-        url: blogs
+        url: https://www.youtube.com/watch?v=dQw4w9WgXcQ
     #button2:
       #- name: Log In
         #url: '#'
@@ -69,7 +69,7 @@ params:
       - name: Home
         url: '#'
       - name: About me
-        url: blogs/ipsum
+        url: blogs/about_me
       - name: Project 1
         url: blogs/homework_omega
       - name: Project 2
@@ -83,19 +83,19 @@ params:
       - image: about_me.jpg
         subtitle: A short biography
         title: About me
-        url: blogs/ipsum
+        url: blogs/about_me
       - image: thesis.jpg
-        subtitle: ESPORT vs. SPORT TRADITIONNEL
+        subtitle: Esport vs. Traditionnal Sport
         title: Thesis
         url: docs/thesis.pdf
       - image: emoji.jpg
         subtitle: Download my CV
         title: CV
         url: docs/CV.pdf
-      - image: pic06.jpg
-        subtitle: XXXXX
+      - image: pic.jpg
+        subtitle: Why you should hire me
         title: Cover Letter
-        url: blogs/about_me
+        url: blogs/cover_letter
       - image: omega.jpg
         subtitle: Omega analysis
         title: Project 1
@@ -110,4 +110,4 @@ params:
     enable: yes
     subtitle: "Thank you for visiting my website. Feel free to add me on social media."
     title: Contacts
-    url: blogs
+    url: https://www.youtube.com/watch?v=dQw4w9WgXcQ
