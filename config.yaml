@@ -61,7 +61,7 @@ params:
   navigation:
     button1:
       - name: Get Started
-        url: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        url: blogs
     #button2:
       #- name: Log In
         #url: '#'

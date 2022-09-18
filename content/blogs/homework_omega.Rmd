@@ -11,9 +11,6 @@ keywords: ""
 slug: homework_omega # slug is the shorthand URL address... no spaces plz
 title: Omega Pay Discrimination
 ---
-  
-
-
 
 ```{r, setup, echo=FALSE}
 knitr::opts_chunk$set(
@@ -52,18 +49,14 @@ library(data.table)
 
 # Omega Group plc- Pay Discrimination
 
-You are asked to carry out the analysis. The objective is to find out whether there is indeed a significant difference between the salaries of men and women, and whether the difference is due to discrimination or whether it is based on another, possibly valid, determining factor. 
+The objective is to find out whether there is indeed a significant difference between the salaries of men and women, and whether the difference is due to discrimination or whether it is based on another, possibly valid, determining factor. 
 
-
-Loading the data:
-
-```{r load_omega_data}
+```{r load_omega_data, include=FALSE}
 omega <- read_csv(here::here("data", "omega.csv"))
 glimpse(omega) # examine the data frame
 ```
 
 ## Relationship Salary - Gender ?
-
 
 ```{r confint_single_valiables}
 # Summary Statistics of salary by gender
@@ -91,9 +84,8 @@ kable(ci_omega,
 
 ```
 
-What can you conclude from your analysis? A couple of sentences would be enough
+**Conclusion:**
 
-**Answer:**\
 The two confidence interval for women and men salary of a 95% do not overlap. The difference in salary between the two groups is thus significantly different. The t-test would thus not be needed in this case. 
 
 
@@ -139,11 +131,9 @@ salaries_in_null_world %>%
 
 ```
 
-What can you conclude from your analysis? A couple of sentences would be enough
+**Conclusion:**
 
-**Answer**:\
-
-The R t-test clearly showed that the null hypothesis (no difference) can be rejected. This can be seen by three indicators: first the |t-stat| is approximately > 2, second the CI for delta does not contain zero, third the p-value is < 5%.\
+The R t-test clearly showed that the null hypothesis (no difference) can be rejected. This can be seen by three indicators: first the |t-stat| is approximately > 2, second the CI for delta does not contain zero, third the p-value is < 5%.
 With 1000 reps the bootstrap simulation gave a p-value of zero, this can be the case when the observed statistic is very unlikely. We thus had to increase the reps to 10000 to replicate the results from the formula.
 
 ## Relationship Experience - Gender?
@@ -154,7 +144,6 @@ favstats (experience ~ gender, data=omega)
 
 ```
 
-Based on this evidence, can you conclude that there is a significant difference between the experience of the male and female executives? Does your conclusion validate or endanger your conclusion about the difference in male and female salaries? 
 
 ```{r ci_experience}
 
@@ -178,7 +167,7 @@ kable(ci_omega_experience,
 
 ```
 
-**Answer:**\
+**Conclusion:**
 
 The two experience confidence intervals for women and men at 95% do not overlap. The difference between the two groups is thus significantly different and there is no need to run a t-test. These findings would endager the conclusion drawn above (gender-based salary discrimination) as it seems that not only gender, but an additional previously not considered factor, experience, could influence the pay-gap. Further anaylsis is suggested.
 
@@ -187,7 +176,7 @@ The two experience confidence intervals for women and men at 95% do not overlap.
 
 Someone at the meeting argues that clearly, a more thorough analysis of the relationship between salary and experience is required before any conclusion can be drawn about whether there is any gender-based salary discrimination in the company.
 
-Analyse the relationship between salary and experience. Draw a scatterplot to visually inspect the data
+We are going to analyse the relationship between salary and experience and draw a scatterplot to visually inspect the data.
 
 ```{r, salary_exp_scatter, fig.height=4}
 
@@ -210,8 +199,7 @@ omega %>%
   theme_bw()
 ```
 
-Look at the salary vs experience scatterplot. What can you infer from this plot? Explain in a couple of sentences
 
-**Answer:**
+**Conclusion:**
 
 The correlation matrix reweals many interesting things in just one visualization. Looking at the scatterplot we can see a clear correlation between years of experience and salary, this is true for both genders. The correlation can also be confirmed mathematically with a total cor of 0.8. In other words, the higher the experience the higher the salary. We have used two colors in the plot above to demonstrate that women salary increase more significantly with growing experience (stepper slope). With women having a median experience of 3 and men of 19.5 it is thus not surprising that there is a significant pay-gap. Omega should rather investigate the underlying reason why women have so little work experience. Are senior positions which require more experience mainly filled by man while graduate positions mainly by women? Anyhow, further investigation is needed!
