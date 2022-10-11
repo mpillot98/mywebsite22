@@ -91,7 +91,7 @@ params:
       - image: emoji.jpg
         subtitle: Download my CV
         title: CV
-        url: docs/CV LBS 2022.pdf
+        url: docs/CV Manon Pillot.pdf
       - image: pic.jpg
         subtitle: Why you should hire me
         title: Cover Letter
