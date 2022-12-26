@@ -13,9 +13,7 @@ params:
   blog: {}
   contact:
     address:
-      - city: Geneva, 1206
-        country: Switzerland
-        street: Avenue Léon Gaud 5
+      - country: Switzerland
         title: Address
     buttonClear: Clear
     buttonSend: Send message
