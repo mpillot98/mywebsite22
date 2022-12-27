@@ -44,9 +44,21 @@ knitr::opts_chunk$set(
   fig.height = 6,
   fig.align = "center")
 ```
+<style>
+  .bottom-three {
+     margin-bottom: 3cm;
+  }
+</style>
+
+
+<p class="bottom-three">
+   
+</p>
 
 
 # Introduction and BBC iPlayer streaming data
+
+<div class = "navy1">
 
 The BBC is one of the oldest broadcasting organisations of the world. As a public service, its aim is to inform, educate, and entertain the UK population. Due to this broad mission, its key performance measures are not associated with financial profit but instead with how well it manages to engage the wider public with its program offering. To achieve its mission, it is particularly important to know which customer segments are interested in what content and how this drives their engagement with the BBC (often measured by how happy they are to pay for the TV licensing fees).
 
@@ -64,8 +76,11 @@ iii) In the third step you will create meaningful customer segments for the user
 The original data file contains information extracted from the BBC iPlayer database. The dataset was created by choosing approximately 10000 random viewers who watched something on iPlayer in January and then recording their viewing behaviour until the end of April. This means that customers who did not watch in January will not be in the dataset. Every row represents a viewing event. Given the way the data was created, during January the data is representative of what is watched on the iPlayer. After January the data is no longer representative as it is no longer a random sample of the people watching iPlayer content. 
 
 
+</div>
+
 # Learning Objectives
 
+<div class = "navy1">
 <ol type="i">
 <li> Applying clustering methods in a large data set. </li>
 <ul >
@@ -90,8 +105,8 @@ The original data file contains information extracted from the BBC iPlayer datab
       <li>Compare clustering results with different number of clusters.</li>
 </ul>
 <li> Sharing your findings from a technical analysis.</li>
-</ol>
-
+</ol>  
+</div>
 
 # Cleaned Data
 
