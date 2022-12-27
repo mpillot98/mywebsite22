@@ -68,10 +68,14 @@ params:
         url: '#'
       - name: About me
         url: blogs/about_me
-      - name: Project 1
+      - name: Statistics project 1
         url: blogs/homework_omega
-      - name: Project 2
+      - name: Statistics project 2
         url: blogs/homework_energy
+      - name: Data science
+        url: blogs/data_science
+#      - name: Machine learning
+#        url: blogs/homework_energy
     menu: Menu
     subtitle: By HTML5 Up
     title: Forty
@@ -96,12 +100,20 @@ params:
         url: blogs/cover_letter
       - image: omega.jpg
         subtitle: Omega analysis
-        title: Project 1
+        title: Statistics project 1
         url: blogs/homework_omega
       - image: energy.jpg
         subtitle: Share of renewable energy production in the world
-        title: Project 2
+        title: Statistics project 2
         url: blogs/homework_energy
+      - image: energy.jpg
+        subtitle: BBC iPlayer streaming data
+        title: Data science
+        url: blogs/data_science
+#      - image: energy.jpg
+#        subtitle: Share of renewable energy production in the world
+#        title: Machine learning
+#        url: blogs/homework_energy
 
   two:
     buttonText: Get Started
