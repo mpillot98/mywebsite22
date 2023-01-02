@@ -3,7 +3,7 @@ title: "BBC iPlayer streaming data"
 date: "2021-11-28"
 description: Data science.
 draft: no
-image: energy.jpg
+image: bbc.jpg
 keywords: ''
 slug: data_science
 categories:
@@ -343,14 +343,6 @@ plot1 <- userdatall %>%
                plot.title = element_text(face = "bold"))
   
 plot1
-
-# save graph
-ggsave("skewed_times.png",
-       plot = plot1,
-       device = "png",
-       width = 23,
-       height = 13,
-       units = "cm")
 ```
 
 **Note:** The x-axis on the whisker plot has been cropped in order to be able to show the box, while the x-axis on the histogram has been transformed to a log10 scale to represent the heavily skewed data. This can also be seen by the median lying to the left of the mean.
@@ -634,14 +626,6 @@ improvement <- ggplot(elbow_df,
                      plot.title = element_text(face = "bold"))
 
 improvement
-
-# save graph
-ggsave("elbow_improvement.png",
-       plot = improvement,
-       device = "png",
-       width = 15,
-       height = 13,
-       units = "cm")
 ```
 
 
@@ -914,13 +898,6 @@ center3
 center4
 center5
 
-# save graph
-ggsave("kmeans3_centers.png",
-       plot = bar3,
-       device = "png",
-       width = 25,
-       height = 14,
-       units = "cm")
 ```
 
 **Interpretation:** The cluster 2 focussing on children and learning becomes very pronounced with k = 3. We can also see customers in cluster 3 that focus on news, weather, sport, factual during the day. With k = 4 we can see that factual and news now are contained in two different clusters with the latter going along with weather. With k = 5 we can see a customer emerging that likes comedy, entertainment, and music at night. 
@@ -1163,11 +1140,6 @@ pCenters_h_ward <- h_ward_centers_t %>%
 
 pCenters_h_ward
 
-# save graph
-ggsave(file = "center_ward.svg",
-       plot = pCenters_h_ward,
-       width = 7,
-       height = 3.5)
 ```
 
 ```{r h pca, message=FALSE, warning=FALSE}
@@ -1247,13 +1219,6 @@ bar_methods <- ggplot(method_centers_t,
 
 bar_methods
 
-# save graph
-ggsave("bar_methods.png",
-       plot = bar_methods,
-       device = "png",
-       width = 20,
-       height = 15,
-       units = "cm")
 ```
 
 **Conclusion:** K means has already been discussed earlier. For pam we can see that cluster centers do not have such a clear tendency (also confirmed by PCA) but cluster sizes are more similar. As expected, due to skewed data H average did not yield any useful results with two clusters having only a handful of datapoints. H ward on the other side yielded similar results to k-means, both in cluster sizes and center positions. 
@@ -1339,26 +1304,6 @@ pca3_plot <- fviz_cluster(model_kmeans_3clusters,
 pca3_plot
 pca_training
 pca_testing
-
-# save graphs
-ggsave("pca_all.png",
-       plot = pca3_plot,
-       device = "png",
-       width = 25,
-       height = 20,
-       units = "cm")
-ggsave("pca_training.png",
-       plot = pca_training,
-       device = "png",
-       width = 25,
-       height = 20,
-       units = "cm")
-ggsave("pca_testing.png",
-       plot = pca_testing,
-       device = "png",
-       width = 25,
-       height = 20,
-       units = "cm")
 ```
 
 ```{r out of sample check centers, message=FALSE, warning=FALSE}

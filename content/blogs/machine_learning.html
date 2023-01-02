@@ -1,0 +1,122 @@
+---
+categories:  
+- ""    #the front matter should be like the one found in, e.g., blog2.md. It cannot be like the normal Rmd we used
+- ""
+date: "2021-09-30"
+description: Project 2. # the title that will show up once someone gets to this page
+draft: false
+image: energy.jpg # save picture in \static\img\blogs. Acceptable formats= jpg, jpeg, or png . Your iPhone pics wont work
+
+keywords: ""
+slug: homework_energy # slug is the shorthand URL address... no spaces plz
+title: Share of renewable energy production in the world
+---
+
+
+
+<div id="first-lets-produce-a-graph-with-the-countries-with-the-highest-and-lowest-contribution-of-renewables-in-energy-production." class="section level2">
+<h2>First, let’s produce a graph with the countries with the highest and lowest % contribution of renewables in energy production.</h2>
+<pre class="r"><code>#Energy Dataset converted to wide format and calculated % of renewable energy (rounded 3 decimal places)
+energy_renew &lt;- energy %&gt;% 
+  filter(year==2019)  %&gt;% 
+  select(c(variable,value,country)) %&gt;%
+  pivot_wider(names_from = variable, values_from = value) %&gt;% 
+  mutate(perc_hydro=round(elec_hydro/elecprod, 3),
+         perc_solar=round(elec_solar/elecprod, 3),
+         perc_wind=round(elec_wind/elecprod, 3),
+         perc_renew_other=round(elec_renew_other/elecprod, 3),
+         perc_renew=round(perc_hydro+perc_solar+perc_wind+perc_renew_other,3)) %&gt;% 
+  mutate(country=fct_reorder(country,perc_renew))
+
+#Filtered data set for non-negative percentage and chose the bottom 20 countries followed by the graph formatting
+energy_min_20 &lt;- energy_renew %&gt;% 
+  filter(perc_renew&gt;0) %&gt;% 
+  group_by(country) %&gt;% 
+  summarise(perc_renew=sum(perc_renew)) %&gt;% 
+  slice_min(perc_renew,n=20) %&gt;% 
+  mutate(country=fct_reorder(country,perc_renew)) %&gt;% 
+  ggplot(aes(perc_renew,country))+
+  geom_col()+
+  scale_x_continuous(labels=scales::percent)+
+  labs(x=NULL,y=NULL)+
+  theme_minimal() +
+  theme(text = element_text(size = 7))
+
+#Filtered data set for non-negative percentage and chose the top 20 countries followed by the graph formatting  
+energy_max_20 &lt;- energy_renew %&gt;% 
+  filter(perc_renew&gt;0) %&gt;% 
+  group_by(country) %&gt;% 
+  summarise(perc_renew=sum(perc_renew)) %&gt;% 
+  slice_max(perc_renew,n=20) %&gt;% 
+  mutate(country=fct_reorder(country,perc_renew)) %&gt;% 
+  ggplot(aes(perc_renew,country))+
+  geom_col()+
+  scale_x_continuous(labels=scales::percent)+
+  labs(x=NULL,y=NULL)+
+  theme_minimal()+
+  theme(text = element_text(size = 7))
+
+#Graphs are combined and labelled
+energy_max_20 + energy_min_20 +
+  plot_annotation(title = &quot;Highest and lowest % of renewables in energy production&quot;,
+                  subtitle = &quot;2019 Data&quot;,
+                  caption = &quot;Source: NBER CHAT Database&quot;)</code></pre>
+<p><img src="/blogs/machine_learning_files/figure-html/min-max_renewables-self-1.png" width="100%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="second-we-can-produce-an-animation-to-explore-the-relationship-between-co2-per-capita-emissions-and-the-deployment-of-renewables." class="section level2">
+<h2>Second, we can produce an animation to explore the relationship between CO2 per capita emissions and the deployment of renewables.</h2>
+<pre class="r"><code>#Create a pivot wider format and add new column
+energy_perc &lt;- energy %&gt;% 
+  select(year, variable,value,country) %&gt;% 
+  pivot_wider(names_from = variable, values_from = value) %&gt;% 
+  mutate(percent_renew = (elec_hydro+elec_solar+elec_wind+elec_renew_other)/elecprod *100) 
+
+# Select only interested columns in energy chart
+energy_perc_filtered &lt;- energy_perc %&gt;% 
+  select(year, country, percent_renew)
+  
+# Select only interested columns in co2 chart
+co2_percap_filtered &lt;- co2_percap %&gt;% 
+  select(country, date, value, iso3c) %&gt;% 
+  rename(year = date)
+
+# Join the tables (energy, co2, and income_level)
+energy_combined1 &lt;- left_join(energy_perc_filtered, co2_percap_filtered, by = c(&quot;country&quot;, &quot;year&quot;))
+energy_combined2 &lt;- left_join(energy_combined1, countries, by = c(&quot;iso3c&quot;))
+
+# Create visualization (packages required)
+energy_combined2 %&gt;% 
+  mutate(year = as.integer(year)) %&gt;% 
+  filter(year&gt;=1990, !is.na(income_level)) %&gt;% 
+  ggplot(aes(x=percent_renew, y=value, color = income_level))+
+  geom_point()+
+  theme_bw()+
+  theme(legend.position=&quot;none&quot;)+
+  facet_wrap(~income_level) +
+  labs(title = &#39;Year: {frame_time}&#39;, 
+       x = &#39;% renewables&#39;, 
+       y = &#39;CO2 per cap&#39;) +
+  transition_time(year) +
+  ease_aes(&#39;linear&#39;)</code></pre>
+<p><img src="/blogs/machine_learning_files/figure-html/animation-self-1.gif" width="100%" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#Find out correlation    
+kable(correlate(energy_combined2$percent_renew,energy_combined2$value), 
+      caption = &quot;Correlation CO2 and renewables&quot;)</code></pre>
+<table>
+<caption><span id="tab:animation-self">Table 1: </span>Correlation CO2 and renewables</caption>
+<thead>
+<tr class="header">
+<th align="left">term</th>
+<th align="right">x</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">x</td>
+<td align="right">-0.338</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Conclusion:</strong></p>
+<p>Since the correlation value for Co2 emission and usage renewable energy is negative, we can roughly say that as usage of renewable energy goes up, we can reduce CO2 emission by up to 33%. This finding would correspond to the common understanding on how renewable energy could be a vital factor in slowing down climate change.</p>
+</div>
