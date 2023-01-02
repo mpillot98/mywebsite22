@@ -1,0 +1,1509 @@
+---
+title: "BBC iPlayer streaming data"
+date: "2021-11-28"
+description: Data science.
+draft: no
+image: energy.jpg
+keywords: ''
+slug: data_science
+categories:
+- ''
+- ''
+---
+
+
+
+<style>
+  .bottom-three {
+     margin-bottom: 3cm;
+  }
+</style>
+<p class="bottom-three">
+</p>
+<div id="introduction-and-bbc-iplayer-streaming-data" class="section level1">
+<h1>Introduction and BBC iPlayer streaming data</h1>
+<div class="navy1">
+<p>The BBC is one of the oldest broadcasting organisations of the world. As a public service, its aim is to inform, educate, and entertain the UK population. Due to this broad mission, its key performance measures are not associated with financial profit but instead with how well it manages to engage the wider public with its program offering. To achieve its mission, it is particularly important to know which customer segments are interested in what content and how this drives their engagement with the BBC (often measured by how happy they are to pay for the TV licensing fees).</p>
+<p>Traditionally, the BBC reached its audience through terrestrial broadcasting, first analogue and then digital, which made it difficult to monitor public engagement. This had to been done retrospectively by monitoring a relatively small sample of representative consumers who consented to having their TV-watching habits observed and recorded. More recently, the BBC launched a digital TV streaming service, the BBC iPlayer, which allows streaming BBC content on demand. Besides being a more convenient way to deliver content to the public, the streaming service allows the BBC to get a more detailed perspective of public engagement. In time, this should allow the BBC to better predict how different customer segments react to the programs it offers and become more effective in informing, educating, and entertaining them.</p>
+<p>The goal of this workshop is to use data mining techniques to gain a data-based view of BBC’s iPlayer customers and the content it provides.</p>
+<ol style="list-style-type: lower-roman">
+<li><p>In the first step we will process the raw data for analysis. We need to clean and enrich the data.</p></li>
+<li><p>We have an engagement based data and in the second step we will convert this to a user based data. Also we will engineer new features.</p></li>
+<li><p>In the third step we will create meaningful customer segments for the users of the BBC iPlayer. In this step we will use K-Means, K-Medoid and H-Clustering methods to determine meaningful clusters for iPlayer viewers.</p></li>
+</ol>
+<p>The original data file contains information extracted from the BBC iPlayer database. The dataset was created by choosing approximately 10 000 random viewers who watched something on iPlayer in January and then recording their viewing behaviour until the end of April. This means that customers who did not watch in January will not be in the dataset. Every row represents a viewing event. Given the way the data was created, during January the data is representative of what is watched on the iPlayer. After January the data is no longer representative as it is no longer a random sample of the people watching iPlayer content.</p>
+</div>
+</div>
+<div id="cleaned-data" class="section level1">
+<h1>Cleaned Data</h1>
+<p>Let’s load the cleaned data and investigate what’s in the data. See below for column descriptions.</p>
+<div class="navy">
+<p>The column descriptions are as follows.</p>
+<ol style="list-style-type: lower-alpha">
+<li><p>user_id – a unique identifier for the viewer</p></li>
+<li><p>program_id and series_id – these identify the program and the series that the program belongs to</p></li>
+<li><p>genre – the programme’s genre (e.g., drama, factual, news, sport, comedy, etc)</p></li>
+<li><p>start_date_time – the streaming start date/time of the event</p></li>
+<li><p>Streaming id – a unique identifier per streaming event</p></li>
+<li><p>prog_duration_min – the program duration in minutes</p></li>
+<li><p>time_viewed_min – how long the customer watched the program in minutes</p></li>
+<li><p>duration_more_30s - equals 1 if the program duration is more than 30 seconds, equals 0 otherwise</p></li>
+<li><p>time_viewed_more_5s - equals 1 if time_viewed is more than 5 seconds, equals 0 otherwise</p></li>
+<li><p>percentage_program_viewed – percentage of the program viewed</p></li>
+<li><p>watched_more_60_percent – equals 1 if more than 60% of the program is watched, equals 0 otherwise</p></li>
+<li><p>month, day, hour, weekend – timing of the viewing (day tells you weekday, Sunday = 1)</p></li>
+<li><p>time_of_day – equals “Night” if the viewing occurs between 22 and 6am, “Day” if it occurs between 6AM and 14, “Afternoon” if the it occurs between 14 and 17, “Evening” otherwise</p></li>
+</ol>
+</div>
+<p>Before we proceed let’s consider the usage in January only.</p>
+</div>
+<div id="user-based-data" class="section level1">
+<h1>User based data</h1>
+<p>We will try to create meaningful customer segments that describe users of the BBC iPlayer service. First we need to change the data to user based and generate a summary of their usage.</p>
+<div id="data-format" class="section level2">
+<h2>Data format</h2>
+<p>The data is presented to us in an event-based format (every row captures a viewing event). However we need to detect the differences between the general watching habits of users.</p>
+</div>
+<div id="feature-engineering" class="section level2">
+<h2>Feature Engineering</h2>
+<p>For the workshop let’s generate the following variables for each user.</p>
+<ol style="list-style-type: lower-roman">
+<li>Total number of shows watched and ii. Total time spent watching shows on iPlayer by each user in the data</li>
+</ol>
+<pre class="r"><code># count number shows per user
+userData &lt;- cleaned_BBC_Data %&gt;% 
+            group_by(user_id) %&gt;% 
+            summarise(noShows = n(),
+                      total_Time = sum(time_viewed_min)) </code></pre>
+<ol start="3" style="list-style-type: lower-roman">
+<li>Proportion of shows watched during the weekend for each user.</li>
+</ol>
+<pre class="r"><code># let&#39;s find the number of shows on weekend and weekdays
+userData2 &lt;- cleaned_BBC_Data %&gt;% 
+             group_by(user_id,
+                      weekend) %&gt;% 
+             summarise(noShows = n())
+
+# let&#39;s find percentage in weekend and weekday
+userData3 = userData2 %&gt;% 
+            group_by(user_id) %&gt;% 
+            mutate(weight_pct = noShows / sum(noShows))
+
+# let&#39;s create a data frame with each user in a row
+userData3 &lt;- select(userData3,
+                    -noShows)
+userData3 &lt;- userData3 %&gt;% 
+             spread(weekend,
+                    weight_pct,
+                    fill = 0) %&gt;%
+             as.data.frame()
+
+# let&#39;s merge the final result with the data frame from the previous step
+userdatall &lt;- left_join(userData,
+                        userData3,
+                        by = &quot;user_id&quot;)</code></pre>
+<ol start="4" style="list-style-type: lower-roman">
+<li>Proportion of shows watched during different times of day for each user.</li>
+</ol>
+<pre class="r"><code># code in this block follows the same steps above
+userData2 &lt;- cleaned_BBC_Data %&gt;% 
+             group_by(user_id,
+                      time_of_day) %&gt;% 
+             summarise(noShows = n()) %&gt;% 
+             mutate(weight_pct = noShows / sum(noShows))
+
+# bring it in wide format
+userData4 &lt;- select(userData2,
+                   -c(noShows))
+userData4 &lt;- userData4 %&gt;% 
+             spread(time_of_day,
+                    weight_pct,
+                    fill = 0)
+
+# merge the final result with the data frame from the previous step
+userdatall &lt;- left_join(userdatall,
+                        userData4,
+                        by = &quot;user_id&quot;)</code></pre>
+<blockquote>
+<p>Find the proportion of shows watched in each genre by each user.</p>
+</blockquote>
+<pre class="r"><code># code in this block follows the same steps above
+userData2 &lt;- cleaned_BBC_Data %&gt;% 
+             group_by(user_id,
+                      genre) %&gt;% 
+             summarise(noShows = n()) %&gt;% 
+             mutate(weight_pct = noShows / sum(noShows))
+
+# bring it in wide format
+userData4 &lt;- select (userData2,
+                     -c(noShows))
+userData4 &lt;- userData4 %&gt;% 
+             spread(genre,
+                    weight_pct,
+                    fill = 0)
+
+# add your results to the data frame userdatall
+userdatall &lt;- left_join(userdatall,
+                        userData4,
+                        by = &quot;user_id&quot;)</code></pre>
+<p><strong>Motivation:</strong> We would like to differentiate users by how much immersed they are in the content they watch. An approximation for this could be the percentage_viewed - with low mean value indicating little immersion and high mean value strong immersion in the program, in other words, their engagement.</p>
+<pre class="r"><code># code in this block follows the same steps above
+userData2 &lt;- cleaned_BBC_Data %&gt;% 
+             group_by(user_id) %&gt;% 
+             summarise(percentage_viewed = mean(percentage_program_viewed)) 
+
+#add your results to the data frame userdatall
+userdatall &lt;- left_join(userdatall,
+                        userData2,
+                        by = &quot;user_id&quot;)</code></pre>
+</div>
+</div>
+<div id="visualizing-user-based-data" class="section level1">
+<h1>Visualizing user-based data</h1>
+<p>Next let’s visualize the information captured in the user based data. We’ll start with the correlations.</p>
+<pre class="r"><code># plot correlation matrix of user parameters
+userdatall %&gt;% 
+  select(-user_id) %&gt;% #keep Y variable last
+  ggcorr(method = c(&quot;pairwise&quot;, &quot;pearson&quot;),
+         layout.exp = 3,
+         label_round = 2,
+         label = TRUE,
+         label_size = 2,
+         hjust = 1)+
+  labs(title = &quot;Correlation Matrix of User Parameters&quot;)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/correlations-1.png" width="768" style="display: block; margin: auto;" /></p>
+<p>As expected, the self-excluding binary variables weekend and weekday have a perfect negative correlation. The same is true (though not to the same extend due to 4 variables) among single day times. We can also note a strong positive correlation between the number of shows watched and the total time watched. There is also some correlation between single genres such as Drama and Factual.
+A strong correlation would mean that we could reduce dimensions in our clustering analysis without losing much of the information. In addition, variables that are collinear pose the risk of having double the weight in the clustering analysis.</p>
+<pre class="r"><code># box-whisker noShows
+b1 &lt;- userdatall %&gt;% 
+      ggplot(aes(y = factor(0),
+                 x = noShows))+
+      geom_boxplot()+
+      labs(title = &quot;Number of Shows&quot;)+
+      xlim(0, 40)
+
+# histogram noShows
+h1 &lt;- userdatall %&gt;% 
+      ggplot(aes(x = noShows))+
+      geom_histogram()+
+      scale_x_log10()+
+      geom_segment(aes(x = mean(noShows),
+                       y = 0, xend = mean(noShows),
+                       yend = 3000),
+                       colour = &quot;black&quot;)+
+      geom_segment(aes(x = median(noShows),
+                       y = 0, xend = median(noShows),
+                       yend = 3000),
+                       colour = &quot;grey&quot;)
+
+# box-whisker total_Time
+b2 &lt;- userdatall %&gt;% 
+      ggplot(aes(y = factor(0),
+                 x = total_Time))+
+      geom_boxplot()+
+      labs(title = &quot;Total time watched&quot;)+
+      xlim(0, 300)
+
+# histogram total_Time
+h2 &lt;- userdatall %&gt;% 
+      ggplot(aes(x = total_Time))+
+      geom_histogram()+
+      scale_x_log10()+
+      geom_segment(aes(x = mean(total_Time),
+                       y = 0,
+                       xend = mean(total_Time),
+                       yend = 1000),
+                       colour = &quot;black&quot;)+
+      geom_segment(aes(x = median(total_Time),
+                       y = 0,
+                       xend = median(total_Time),
+                       yend = 1000),
+                       colour = &quot;grey&quot;)
+
+# combine plots
+(b1 + h1) / ( b2 + h2)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/visualisations-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># total 
+plot1 &lt;- userdatall %&gt;% 
+         ggplot(aes(x = total_Time))+
+         geom_histogram(bins = 15,
+                        color = &quot;white&quot;,
+                        fill = &quot;grey&quot;)+
+         labs(title = &quot;Total time data is heavily right skewed&quot;,
+              subtitle = &quot;Median (black) and mean (red) on log scale&quot;,
+              y = &quot;Count&quot;,
+              x = &quot;Total Time [min]&quot;)+
+         geom_segment(aes(x = mean(total_Time),
+                          y = 0,
+                          xend = mean(total_Time),
+                          yend = 1750),
+                      colour = &quot;darkred&quot;,
+                      linetype = 2)+
+         geom_segment(aes(x = median(total_Time),
+                          y = 0,
+                          xend = median(total_Time),
+                          yend = 1750),
+                      colour = &quot;black&quot;,
+                      linetype = 2)+
+         theme_minimal()+
+         ylim(0, 1750)+
+         scale_x_continuous(trans = &#39;log10&#39;)+
+         theme(text = element_text(family = &quot;Roboto&quot;),
+               plot.title = element_text(face = &quot;bold&quot;))
+  
+plot1</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/visualisations-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graph
+ggsave(&quot;skewed_times.png&quot;,
+       plot = plot1,
+       device = &quot;png&quot;,
+       width = 23,
+       height = 13,
+       units = &quot;cm&quot;)</code></pre>
+<p><strong>Note:</strong> The x-axis on the whisker plot has been cropped in order to be able to show the box, while the x-axis on the histogram has been transformed to a log10 scale to represent the heavily skewed data. This can also be seen by the median lying to the left of the mean.</p>
+<p><strong>Observation:</strong> Since both variables are highly correlated, we can expect to observe similar patterns. In both cases, we have numerous very infrequent users and a few high outliers. We need to consider these outliers in our cluster analysis distorting the cluster to include these extreme points.</p>
+<div id="delete-infrequent-users" class="section level2">
+<h2>Delete infrequent users</h2>
+<p>We will delete the records for users whose total view time is less than 5 minutes and who views 5 or fewer programs. These users are not very likely to be informative for clustering purposes. Or we can view these users as a ``low-engagement’’ cluster.</p>
+<pre class="r"><code># delete users whose total view time is less than 5 minutes and who views 5 or fewer programs
+userdata_red &lt;- userdatall %&gt;%
+                filter(total_Time &gt;= 5)%&gt;%
+                filter(noShows &gt;= 5)
+
+# distribution plot 
+ggplot(userdata_red,
+       aes(x = total_Time))+
+  geom_histogram(binwidth = 25)+
+  labs(title = &quot;User counts who in total watched &gt; 5 shows or &gt; 5 mins&quot;,
+       x = &quot;Total Time Watched (mins)&quot;,
+       y = &quot;Count&quot;)+
+  xlim(0, 5000)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/delete%20unimportant%20users-1.png" width="768" style="display: block; margin: auto;" /></p>
+</div>
+</div>
+<div id="clustering-with-k-means" class="section level1">
+<h1>Clustering with K-Means</h1>
+<p>Now we are ready to find clusters in the BBC iPlayer viewers. We will start with the K-Means algorithm.</p>
+<div id="training-a-k-means-model" class="section level2">
+<h2>Training a K-Means Model</h2>
+<pre class="r"><code># get rid of variables that you might not need. Do not include no shows as well because it is highly correlated with total time
+userData_clust &lt;- userdata_red %&gt;% 
+                  select(-user_id,
+                         -weekday,
+                         -noShows)
+
+# log transform total time to reduce the impact of outliers 
+userData_clust &lt;- userData_clust %&gt;% 
+                  mutate(total_Time = log(total_Time))
+
+# scale the data 
+userData_clust &lt;- data.frame(scale(userData_clust))
+
+# proofchecking scaling
+print(mean(userData_clust$weekday))</code></pre>
+<pre><code>## [1] NA</code></pre>
+<pre class="r"><code>print(sd(userData_clust$weekday))</code></pre>
+<pre><code>## [1] NA</code></pre>
+<pre class="r"><code># train kmeans clustering
+model_kmeans_2clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 2,
+                                 nstart = 50,
+                                 graph = FALSE)
+
+# results of the clustering algorithm
+summary(model_kmeans_2clusters)</code></pre>
+<pre><code>##              Length Class      Mode   
+## cluster      3625   -none-     numeric
+## centers        38   -none-     numeric
+## totss           1   -none-     numeric
+## withinss        2   -none-     numeric
+## tot.withinss    1   -none-     numeric
+## betweenss       1   -none-     numeric
+## size            2   -none-     numeric
+## iter            1   -none-     numeric
+## ifault          1   -none-     numeric
+## silinfo         3   -none-     list   
+## nbclust         1   -none-     numeric
+## data           19   data.frame list</code></pre>
+<pre class="r"><code># size of the two clusters
+model_kmeans_2clusters$size</code></pre>
+<pre><code>## [1] 2390 1235</code></pre>
+<pre class="r"><code># add clusters to the data frame
+userData_clust_kmeans2 &lt;- userData_clust %&gt;% 
+                          mutate(cluster = as.factor(model_kmeans_2clusters$cluster))</code></pre>
+<p><strong>Comment:</strong> Of course increasing the random starts will increase the model performance but also the computing power required. According to the consulted literature 50 random starts is high enough to yield relevant results. The cluster sizes are of size 2390 and 1235.</p>
+</div>
+<div id="visualizing-the-results" class="section level2">
+<h2>Visualizing the results</h2>
+<div id="cluster-centers" class="section level3">
+<h3>Cluster centers</h3>
+<pre class="r"><code># creating new dataframe with cluster centers
+cluster_centers_kmeans2 &lt;- data.frame(cluster = as.factor(c(1:2)),
+                                      model_kmeans_2clusters$centers)
+
+# bringing the data in long format
+cluster_centers_kmeans2_t &lt;- cluster_centers_kmeans2 %&gt;% 
+                             gather(variable,
+                                    value,
+                                    -cluster,
+                                    factor_key = TRUE)
+
+# create graph geom line and point, highlight average
+p_centers_kmeans2 &lt;- cluster_centers_kmeans2_t %&gt;% 
+                     ggplot(aes(x = variable,
+                                y = value)) +
+                     geom_line(aes(color = cluster,
+                                   group = cluster),
+                               linetype = &quot;dashed&quot;,
+                               size = 1)+
+                     geom_point(size = 1,
+                                shape = 4)+
+                     geom_hline(yintercept = 0)+ 
+                     labs(title = &quot;K-means Centers (k=2)&quot;)+
+                     theme(text = element_text(size = 10),
+                           axis.text.x = element_text(angle = 45,
+                                                      hjust = 1))
+
+p_centers_kmeans2</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/cluster%20centers-1.png" width="768" style="display: block; margin: auto;" /></p>
+<p><strong>Interpretation:</strong> There seem to be some differences between the two clusters. We can see particular gaps in the period, cluster two tends to watch more in the day and afternoon, while cluster one watches more in the evening and night. Cluster two tends towards genres of children, learning and news. Cluster one on the other hand, watches more, with higher engagement and more likely drama genre.<br />
+A spontaneous association that could be plausible is that cluster two could represent a family household.</p>
+<p><strong>First educated guess:</strong> We could make suggestions to these two usertypes. In specific, by using according genre suggestions, duration of the shows and program ads at relevant times of the day.</p>
+</div>
+<div id="clusters-vs-variables" class="section level3">
+<h3>Clusters vs variables</h3>
+<pre class="r"><code># plot in just two dimensions
+userData_clust_kmeans2 %&gt;% 
+  ggplot(aes(x = total_Time,
+             y = weekend,
+             color =  as.factor(cluster)))+
+  geom_jitter()+
+  labs(title = &quot;K-means Cluster in two dimensions (k=2)&quot;,
+       color = &quot;Cluster&quot;)+
+  theme_minimal()</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/distribution%20wrt%20variables-1.png" width="768" style="display: block; margin: auto;" /></p>
+<p><strong>Interpretation:</strong> We can observe that the weekend variable does not show a clear pattern between one ore the other cluster. For total time on the other hand we can see a small tendency that customers of cluster 1 tend to be more on the right (higher time spend) compared to customers in cluster 2. This is also reflected in the line chart previously presented.</p>
+</div>
+<div id="clusters-vs-pca-components" class="section level3">
+<h3>Clusters vs PCA components</h3>
+<pre class="r"><code># PCA in two dimensions
+fviz_cluster(model_kmeans_2clusters,
+             userData_clust, 
+             palette = &quot;Set2&quot;, 
+             geom = &quot;point&quot;,
+             main = &quot;K-means (k=2) cluster plot on two PC&quot;,
+             ggtheme = theme_minimal())</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/cluster%20centers%202-1.png" width="768" style="display: block; margin: auto;" /></p>
+<p>Although we can see a clear pattern especially on dimension 1, both clusters overlap significantly.</p>
+</div>
+<div id="clusters-vs-pca-components-without-log-transform" class="section level3">
+<h3>Clusters vs PCA components without log transform</h3>
+<pre class="r"><code># we do the same exercise just without the necessary data wrangling, variables are 
+# indicated with B for Bad
+
+# this time we only get rid of user_id and weekday
+userData_clustB &lt;- userdata_red %&gt;% 
+                   select(-user_id,
+                          -weekday)
+
+# we do not log transfor our data 
+
+# scale the data 
+userData_clustB &lt;- data.frame(scale(userData_clustB))
+
+# proofchecking scaling
+print(mean(userData_clustB$total_Time))</code></pre>
+<pre><code>## [1] -7.388845e-18</code></pre>
+<pre class="r"><code>print(sd(userData_clustB$total_Time))</code></pre>
+<pre><code>## [1] 1</code></pre>
+<pre class="r"><code># train kmeans clustering Bad
+model_kmeans_2clustersB &lt;- eclust(userData_clustB,
+                                  &quot;kmeans&quot;,
+                                  k = 2,
+                                  nstart = 50,
+                                  graph = FALSE)
+
+# results of the clustering algorithm with Bad data
+summary(model_kmeans_2clustersB)</code></pre>
+<pre><code>##              Length Class      Mode   
+## cluster      3625   -none-     numeric
+## centers        40   -none-     numeric
+## totss           1   -none-     numeric
+## withinss        2   -none-     numeric
+## tot.withinss    1   -none-     numeric
+## betweenss       1   -none-     numeric
+## size            2   -none-     numeric
+## iter            1   -none-     numeric
+## ifault          1   -none-     numeric
+## silinfo         3   -none-     list   
+## nbclust         1   -none-     numeric
+## data           20   data.frame list</code></pre>
+<pre class="r"><code># size of the two clusters with Bad data
+model_kmeans_2clustersB$size</code></pre>
+<pre><code>## [1] 3443  182</code></pre>
+<pre class="r"><code># add clusters to the data frame
+userData_clust_kmeans2B &lt;- userData_clustB %&gt;% 
+                           mutate(cluster = as.factor(model_kmeans_2clustersB$cluster))
+
+
+# creating new dataframe with cluster centers
+cluster_centers_kmeans2B &lt;- data.frame(cluster = as.factor(c(1:2)),
+                                       model_kmeans_2clustersB$centers)
+
+# bringing the data in long format
+cluster_centers_kmeans2_tB &lt;- cluster_centers_kmeans2B %&gt;% 
+                              gather(variable,
+                                     value,
+                                     -cluster,
+                                     factor_key = TRUE)
+
+# create graph geom line and point, highlight average
+cluster_centers_kmeans2_tB %&gt;% 
+  ggplot(aes(x = variable,
+             y = value))+
+  geom_line(aes(color = cluster,
+                group = cluster),
+            linetype = &quot;dashed&quot;,
+            size = 1)+
+  geom_point(size = 1,
+             shape = 4)+
+  geom_hline(yintercept = 0)+ 
+  labs(title = &quot;K-means Centers (k=2) - with Outliers&quot;)+
+  theme(text = element_text(size = 10),
+        axis.text.x = element_text(angle = 45,
+                                   hjust = 1),
+        axis.title = element_blank())</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/cluster%20centers%20without%20log%20transform-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># plot in just two dimensions
+userData_clust_kmeans2B %&gt;% 
+  ggplot(aes(x = total_Time,
+             y = weekend,
+             color =  as.factor(cluster)))+
+  geom_point()+
+  labs(title = &quot;K-means Cluster in two dimensions (k=2) - with Outliers&quot;,
+       color = &quot;Cluster&quot;)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/cluster%20centers%20without%20log%20transform-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>fviz_cluster(model_kmeans_2clustersB,
+             userData_clustB, 
+             palette = &quot;Set2&quot;, 
+             geom = &quot;point&quot;,
+             main = &quot;K-means (k=2) cluster plot on two PC - with Outliers&quot;,
+             ggtheme = theme_minimal())</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/cluster%20centers%20without%20log%20transform-3.png" width="768" style="display: block; margin: auto;" /></p>
+<p><strong>Observations:</strong> Yes there are some extreme outliers in both dimensions. We can further see that the cluster sizes are singificantly different (3443 and 182 compared to 2390 and 1235 whit log). In addition, the cluster centers for all variables of cluster 1 are close to zero and thus not very meaningful.</p>
+</div>
+</div>
+<div id="elbow-chart" class="section level2">
+<h2>Elbow Chart</h2>
+<pre class="r"><code># creating an elbow chart with the fast method contained in package
+fviz_nbclust(userData_clust,
+             kmeans,
+             method = &quot;wss&quot;)+
+  labs(subtitle = &quot;Elbow method&quot;,
+       y = &quot;WCSS&quot;)+
+  theme_bw()+
+  scale_y_continuous()</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/elbow-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># alternative Approach --------------------------------------------------------
+
+# use map_dbl to run K-Means models with varying value of k 
+tot_withinss &lt;- map_dbl(1:10, function(k){
+  model &lt;- kmeans(x = userData_clust,
+                  centers = k,
+                  iter.max = 100,
+                  nstart = 10)
+  model$tot.withinss
+})
+
+# generate a data frame containing both k and tot_withinss
+elbow_df &lt;- data.frame(k = 1:10,
+                       tot_withinss = tot_withinss)
+
+# calculate difference
+elbow_df &lt;- elbow_df %&gt;%
+            mutate(tot_withinss = tot_withinss * (-1),
+                   Diff = tot_withinss - lag(tot_withinss))
+
+# print marginal improvement
+improvement &lt;- ggplot(elbow_df,
+                      aes(x = k,
+                          y = Diff)) +
+               geom_line(color = &quot;steelblue&quot;) +
+               geom_point(color = &quot;steelblue&quot;)+
+               geom_vline(xintercept = 3,
+                          linetype = 2)+
+               labs(title = &quot;Largest marginal improvement in k=2 &amp; k=3&quot;,
+                    subtitle = &quot;Elbow method&quot;,
+                    y = &quot;Improvement WCSS&quot;,
+                    x = &quot;Number of cluster k&quot;)+
+               scale_x_continuous(breaks = 1:10)+
+               theme_minimal()+
+               theme(panel.grid.minor.x = element_blank(),
+                     text = element_text(family=&quot;Roboto&quot;),
+                     plot.title = element_text(face = &quot;bold&quot;))
+
+improvement</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/elbow-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graph
+ggsave(&quot;elbow_improvement.png&quot;,
+       plot = improvement,
+       device = &quot;png&quot;,
+       width = 15,
+       height = 13,
+       units = &quot;cm&quot;)</code></pre>
+</div>
+<div id="silhouette-method" class="section level2">
+<h2>Silhouette method</h2>
+<pre class="r"><code># exemplary we plot the silhouette for two clusters
+fviz_silhouette(model_kmeans_2clusters)+ 
+  ggtitle(paste(&quot;k = 2&quot;,
+                &quot;avg sw=&quot;,
+                format(round(model_kmeans_2clusters$silinfo$avg.width,3))))</code></pre>
+<pre><code>##   cluster size ave.sil.width
+## 1       1 2390          0.22
+## 2       2 1235         -0.04</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/Silhouette-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># and for seven clusters
+model_kmeans_3clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 3,
+                                 nstart = 50,
+                                 graph = FALSE)
+
+fviz_silhouette(model_kmeans_3clusters)+ 
+  ggtitle(paste(&quot;K-means (k=3) &quot;,
+                &quot;| Mean sw=&quot;,
+                format(round(model_kmeans_3clusters$silinfo$avg.width,
+                             3))))</code></pre>
+<pre><code>##   cluster size ave.sil.width
+## 1       1 1835          0.18
+## 2       2  181          0.17
+## 3       3 1609          0.00</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/Silhouette-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># using the factoextra library again to calculate optimal cluster count with silhouette method
+fviz_nbclust(userData_clust,
+             kmeans,
+             method = &quot;silhouette&quot;,
+             k.max = 10)+
+  labs(subtitle = &quot;Silhouette method&quot;)+
+  theme_bw()+
+  scale_y_continuous()</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/Silhouette-3.png" width="768" style="display: block; margin: auto;" /></p>
+<p>On the elbow chart we could see a significant drop from 5 to six clusters. From the silhouette analysis we can see that several cluster counts yield similar results. It is however surprising that two clusters have the highest average silhouette with.
+We would thus suggest avoiding very high and very low number of clusters and take a number of clusters that go along well with both methods, for example k = 7.</p>
+</div>
+<div id="comparing-k-means-with-different-k" class="section level2">
+<h2>Comparing k-means with different k</h2>
+<pre class="r"><code># fit kmeans models for 2 - 5
+model_kmeans_2clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 2,
+                                 nstart = 50,
+                                 graph = FALSE)
+model_kmeans_3clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 3,
+                                 nstart = 50,
+                                 graph = FALSE)
+model_kmeans_4clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 4,
+                                 nstart = 50,
+                                 graph = FALSE)
+model_kmeans_5clusters &lt;- eclust(userData_clust,
+                                 &quot;kmeans&quot;,
+                                 k = 5,
+                                 nstart = 50,
+                                 graph = FALSE)
+
+# calculate Sizes and combine in one data frame
+data.frame(cluster_number = c(1, 2, 3, 4, 5),
+           kmeans_2 = c(model_kmeans_2clusters$size,0,0,0),
+           kmeans_3 = c(model_kmeans_3clusters$size,0,0),
+           kmeans_4 = c(model_kmeans_4clusters$size,0),
+           kmeans_5 = model_kmeans_5clusters$size) %&gt;%
+  
+  kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+cluster_number
+</th>
+<th style="text-align:right;">
+kmeans_2
+</th>
+<th style="text-align:right;">
+kmeans_3
+</th>
+<th style="text-align:right;">
+kmeans_4
+</th>
+<th style="text-align:right;">
+kmeans_5
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+2390
+</td>
+<td style="text-align:right;">
+1835
+</td>
+<td style="text-align:right;">
+1621
+</td>
+<td style="text-align:right;">
+182
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+1235
+</td>
+<td style="text-align:right;">
+181
+</td>
+<td style="text-align:right;">
+622
+</td>
+<td style="text-align:right;">
+706
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1609
+</td>
+<td style="text-align:right;">
+181
+</td>
+<td style="text-align:right;">
+811
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1201
+</td>
+<td style="text-align:right;">
+1073
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+853
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># PCA visualizations
+
+# PCA 2 again
+pca2 &lt;- fviz_cluster(model_kmeans_2clusters,
+                     userData_clust, 
+                     palette = &quot;Set2&quot;, 
+                     geom = &quot;point&quot;,
+                     main = &quot;K-means (k=2) cluster plot on two PC&quot;,
+                     ggtheme = theme_minimal())
+
+# PCA 3
+pca3 &lt;- fviz_cluster(model_kmeans_3clusters,
+                     userData_clust, 
+                     palette = &quot;Set2&quot;, 
+                     geom = &quot;point&quot;,
+                     main = &quot;K-means (k=3) cluster plot on two PC&quot;,
+                     ggtheme = theme_minimal())
+
+# PCA 4
+pca4 &lt;- fviz_cluster(model_kmeans_4clusters,
+                     userData_clust, 
+                     palette = &quot;Set2&quot;, 
+                     geom = &quot;point&quot;,
+                     main = &quot;K-means (k=4) cluster plot on two PC&quot;,
+                     ggtheme = theme_minimal())
+
+# PCA 5
+pca5 &lt;- fviz_cluster(model_kmeans_5clusters,
+                     userData_clust, 
+                     palette = &quot;Set2&quot;, 
+                     geom = &quot;point&quot;,
+                     main = &quot;K-means (k=5) cluster plot on two PC&quot;,
+                     ggtheme = theme_minimal())
+
+# combine graphs
+(pca2 + pca3) / (pca4 + pca5)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pca%20visualisation%202%20to%205-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># k-means on two principal components
+pca3_plot &lt;- fviz_cluster(model_kmeans_3clusters,
+                          userData_clust, 
+                          palette = &quot;Set2&quot;, 
+                          geom = &quot;point&quot;,
+                          main = &quot;K-means (k=3) on two Principal Components&quot;,
+                          ggtheme = theme_minimal())
+
+pca3_plot</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pca%20visualisation%202%20to%205-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># add data
+userData_clust_kmeans3 &lt;- userData_clust %&gt;% 
+                          mutate(cluster = as.factor(model_kmeans_3clusters$cluster))
+
+pca4</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pca%20visualisation%202%20to%205-3.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Plot centers
+
+# k2
+k2 &lt;- data.frame(cluster = as.factor(c(1:2)),
+                 model_kmeans_2clusters$centers)
+
+k2 &lt;- k2 %&gt;% gather(variable,
+                    value,
+                    -cluster,
+                    factor_key = TRUE)
+
+center2 &lt;- ggplot(k2,
+                  aes(x = variable, y = value))+  
+           geom_line(aes(color = cluster,
+                         group = cluster),
+                         linetype = &quot;dashed&quot;,
+                         size = 1)+
+           geom_point(size = 1,
+                      shape = 4)+
+           geom_hline(yintercept = 0)+
+           theme_minimal()+
+           theme(text = element_text(size = 10),
+                 axis.text.x = element_text(angle = 45,
+                                            hjust = 1),
+                 legend.title = element_text(size = 5),
+                 legend.text = element_text(size = 5))+
+           ggtitle(&quot;K-means Centers k=2&quot;)+
+           theme(legend.position=&quot;bottom&quot;,
+                 axis.title = element_blank())
+
+# k3
+k3 &lt;- data.frame(cluster = as.factor(c(1:3)),
+                 model_kmeans_3clusters$centers)
+k3_t &lt;- k3 %&gt;%
+        gather(variable,
+               value,
+               -cluster,
+               factor_key = TRUE)
+
+center3 &lt;- ggplot(k3_t,
+                  aes(x = variable,
+                      y = value))+  
+           geom_line(aes(color = cluster,
+                     group = cluster),
+                     linetype = &quot;dashed&quot;,
+                     size = 1)+
+           geom_point(size = 1,
+                      shape = 4)+
+           geom_hline(yintercept = 0)+
+           theme_minimal()+
+           theme(text = element_text(size = 10),
+                 axis.text.x = element_text(angle = 45,
+                                            hjust = 1),
+                 legend.title = element_text(size = 5),
+                 legend.text = element_text(size = 5))+
+           ggtitle(&quot;K-means Centers k=3&quot;)+
+           theme(legend.position = &quot;bottom&quot;,
+                 axis.title = element_blank())
+
+bar3 &lt;- ggplot(k3_t,
+               aes(y = variable,
+                   x = value,
+                   fill = cluster)) + 
+        geom_bar(position = &quot;dodge&quot;,
+                 stat = &quot;identity&quot;,
+                 width = 0.7)+
+        labs(title = &quot;K-means k = 3&quot;,
+             subtitle = &quot;Cluster Centers&quot;,
+             y = &quot;&quot;,
+             x = &quot;Normalized Center&quot;)+
+        theme_minimal()+
+        theme(panel.grid.minor.x = element_blank(),
+              text=element_text(family = &quot;Roboto&quot;),
+              plot.title = element_text(face = &quot;bold&quot;))+
+        scale_fill_discrete(name = &quot;Cluster&quot;, 
+                            labels = c(&quot;The Connoisseur&quot;, &quot;The Didactic&quot;, &quot;The Informed&quot;))
+
+bar3</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/center%20plots-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># k4
+k4 &lt;- data.frame(cluster = as.factor(c(1:4)),
+                 model_kmeans_4clusters$centers)
+k4 &lt;- k4 %&gt;%
+      gather(variable,
+             value,
+             -cluster,
+             factor_key = TRUE)
+
+center4 &lt;- ggplot(k4,
+                  aes(x = variable,
+                      y = value))+  
+           geom_line(aes(color = cluster,
+                         group = cluster),
+                         linetype = &quot;dashed&quot;,
+                         size = 1)+
+           geom_point(size = 1,
+                      shape = 4)+
+           geom_hline(yintercept = 0)+
+           theme_minimal()+
+           theme(text = element_text(size = 10),
+                 axis.text.x = element_text(angle = 45,
+                                            hjust = 1),
+                 legend.title = element_text(size = 5),
+                 legend.text = element_text(size = 5))+
+           ggtitle(&quot;K-means Centers k=4&quot;)+
+           theme(legend.position = &quot;bottom&quot;,
+                 axis.title = element_blank())
+
+# k5
+k5 &lt;- data.frame(cluster = as.factor(c(1:5)),
+                 model_kmeans_5clusters$centers)
+k5 &lt;- k5 %&gt;%
+      gather(variable,
+             value,
+             -cluster,
+             factor_key = TRUE)
+
+center5 &lt;- ggplot(k5,
+                  aes(x = variable,
+                      y = value))+  
+           geom_line(aes(color = cluster,
+                         group = cluster),
+                         linetype = &quot;dashed&quot;,
+                         size = 1)+
+           geom_point(size = 1,
+                      shape = 4)+
+           geom_hline(yintercept = 0)+
+           theme_minimal()+
+           theme(text = element_text(size = 10),
+                 axis.text.x = element_text(angle = 45,
+                                            hjust = 1),
+                 legend.title = element_text(size = 5),
+                 legend.text = element_text(size = 5))+
+           ggtitle(&quot;K-means Centers k=5&quot;)+
+           theme(legend.position = &quot;bottom&quot;,
+                 axis.title = element_blank())
+
+center2</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/center%20plots-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>center3</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/center%20plots-3.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>center4</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/center%20plots-4.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>center5</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/center%20plots-5.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graph
+ggsave(&quot;kmeans3_centers.png&quot;,
+       plot = bar3,
+       device = &quot;png&quot;,
+       width = 25,
+       height = 14,
+       units = &quot;cm&quot;)</code></pre>
+<p><strong>Interpretation:</strong> The cluster 2 focussing on children and learning becomes very pronounced with k = 3. We can also see customers in cluster 3 that focus on news, weather, sport, factual during the day. With k = 4 we can see that factual and news now are contained in two different clusters with the latter going along with weather. With k = 5 we can see a customer emerging that likes comedy, entertainment, and music at night.</p>
+<p><strong>Interpretation:</strong> From the PCA analysis we would tend to exclude k4 and k5 since we can observe large overlaps. When looking at cluster center, we can however see that new clusters emerge that have distinct characteristics. Also the cluster sizes become more similar to each other.</p>
+</div>
+</div>
+<div id="comparing-results-of-different-clustering-algorithms" class="section level1">
+<h1>Comparing results of different clustering algorithms</h1>
+<div id="pam" class="section level2">
+<h2>PAM</h2>
+<pre class="r"><code># partitioning around metoids for k = 3
+
+# create model
+k3_pam &lt;- eclust(userData_clust,
+                 &quot;pam&quot;,
+                 k = 3,
+                 graph = FALSE)
+
+# calculate cluster sizes
+k3_pam$clusinfo[1:3,1:1]</code></pre>
+<pre><code>## [1] 1795  537 1293</code></pre>
+<pre class="r"><code># PAM Medoids
+
+# generating new data frame with cluster medoids and cluster numbers
+cluster_medoids &lt;- data.frame(cluster = as.factor(c(1:3)),
+                              k3_pam$medoids)
+
+# transpose this data frame
+cluster_medoids &lt;- cluster_medoids %&gt;% 
+                   gather(variable,
+                          value,
+                          -cluster,
+                          factor_key = TRUE)
+
+# plot medoids
+pMedoids &lt;- cluster_medoids %&gt;% 
+            ggplot(aes(x = variable,
+                       y = value))+
+            geom_line(aes(color = cluster,
+                          group = cluster),
+                      linetype = &quot;dashed&quot;,
+                      size = 1)+
+            geom_point(size = 1,
+                       shape = 4)+
+            geom_hline(yintercept = 0)+
+            labs(title = &quot;PAM Medoids k=3&quot;)+
+            theme(text = element_text(size = 10),
+                  axis.text.x = element_text(angle = 45,
+                                             hjust = 1))+
+            theme(legend.position = &quot;bottom&quot;,
+                  axis.title = element_blank())
+
+# PAM Centers
+
+# generating new data frame with cluster centers and cluster numbers
+pam_centers &lt;- userData_clust %&gt;% 
+               mutate(cluster = as.factor(k3_pam$cluster))
+
+pam_centers &lt;- pam_centers %&gt;% 
+               group_by(cluster) %&gt;% 
+               summarize_at(vars(total_Time:percentage_viewed),
+                            mean)
+
+# gather to bring in long format
+pam_centers_t &lt;- gather(pam_centers,
+                        key = &quot;variable&quot;,
+                        value = &quot;value&quot;,
+                        -cluster,
+                        factor_key = TRUE)
+
+# ggplot to visualize centers
+pCenters &lt;- pam_centers_t %&gt;% 
+            ggplot(aes(x = variable,
+                       y = value))+ 
+            geom_line(aes(color = cluster,
+                          group = cluster),
+                      linetype = &quot;dashed&quot;,
+                      size = 1)+
+            geom_point(size = 1,
+                       shape = 4)+
+            geom_hline(yintercept = 0)+
+            labs(title =&quot;PAM Centers k= 3&quot;, 
+                 fill = &quot;Cluster&quot;)+
+            theme(text = element_text(size = 10),
+                  axis.text.x = element_text(angle = 45,
+                                             hjust = 1),
+                  legend.title = element_text(size = 5),
+                  legend.text = element_text(size = 5))+
+            theme(legend.position = &quot;bottom&quot;,
+                  axis.title = element_blank())
+
+pMedoids</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pam%20k3-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pCenters</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pam%20k3-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># PCA in two dimensions
+pca_pam &lt;- fviz_cluster(k3_pam,
+                        userData_clust, 
+                        palette = &quot;Set2&quot;, 
+                        geom = &quot;point&quot;,
+                        main = &quot;PAM (k=3) cluster plot on two PC&quot;,
+                        ggtheme = theme_minimal())
+
+pca_pam</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/pam%20k3-3.png" width="768" style="display: block; margin: auto;" /></p>
+</div>
+<div id="h-clustering" class="section level2">
+<h2>H-Clustering</h2>
+<pre class="r"><code># calculating distances between points first
+res_dist &lt;- dist(userData_clust,
+                 method = &quot;euclidean&quot;)
+
+# h with average
+h_average &lt;- hcut(res_dist,
+                  hc_method = &quot;average&quot;,
+                  k = 3)
+summary(h_average)</code></pre>
+<pre><code>##             Length  Class  Mode     
+## merge          7248 -none- numeric  
+## height         3624 -none- numeric  
+## order          3625 -none- numeric  
+## labels            0 -none- NULL     
+## method            1 -none- character
+## call              3 -none- call     
+## dist.method       1 -none- character
+## cluster        3625 -none- numeric  
+## nbclust           1 -none- numeric  
+## silinfo           3 -none- list     
+## size              3 -none- numeric  
+## data        6568500 dist   numeric</code></pre>
+<pre class="r"><code>plot(h_average,
+     hang = -1,
+     cex = 0.5)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/h%20cluster-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># h with ward
+h_ward &lt;- hcut(res_dist,
+               hc_method = &quot;ward.D&quot;,
+               k = 3)
+summary(h_ward)</code></pre>
+<pre><code>##             Length  Class  Mode     
+## merge          7248 -none- numeric  
+## height         3624 -none- numeric  
+## order          3625 -none- numeric  
+## labels            0 -none- NULL     
+## method            1 -none- character
+## call              3 -none- call     
+## dist.method       1 -none- character
+## cluster        3625 -none- numeric  
+## nbclust           1 -none- numeric  
+## silinfo           3 -none- list     
+## size              3 -none- numeric  
+## data        6568500 dist   numeric</code></pre>
+<pre class="r"><code>plot(h_ward,hang = -1,
+     cex = 0.5)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/h%20cluster-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># comparison of sizes
+data.frame(average = h_average$size,
+           ward = h_ward$size) %&gt;% 
+  kable()</code></pre>
+<table>
+<thead>
+<tr>
+<th style="text-align:right;">
+average
+</th>
+<th style="text-align:right;">
+ward
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+3622
+</td>
+<td style="text-align:right;">
+2610
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+863
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+152
+</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># r average
+
+# generating new data frame with cluster centers and cluster numbers
+h_average_centers &lt;- userData_clust %&gt;% 
+                     mutate(cluster = as.factor(h_average$cluster))
+
+h_average_centers &lt;- h_average_centers %&gt;% 
+                     group_by(cluster) %&gt;% 
+                     summarize_at(vars(total_Time:percentage_viewed),
+                                  mean)
+
+# gather to bring in long format
+h_average_centers &lt;- gather(h_average_centers,
+                            key = &quot;variable&quot;,
+                            value = &quot;value&quot;,
+                            -cluster,
+                            factor_key = TRUE)
+
+# ggplot to visualize centers
+pCenters_h_average &lt;- h_average_centers %&gt;% 
+                      ggplot(aes(x = variable,
+                                 y = value))+ 
+                      geom_line(aes(color = cluster,
+                                    group = cluster),
+                                linetype = &quot;dashed&quot;,
+                                size = 1)+
+                      geom_point(size = 1,shape = 4)+
+                      geom_hline(yintercept = 0)+
+                      labs(title = &quot;H average Centers k = 3&quot;,
+                           fill = &quot;Cluster&quot;)+
+                      theme(text = element_text(size = 10),
+                            axis.text.x = element_text(angle = 45,
+                                                       hjust = 1),
+                            legend.title = element_text(size = 5),
+                            legend.text = element_text(size = 5))+
+                      theme(legend.position = &quot;bottom&quot;,
+                            axis.title=element_blank())
+
+pCenters_h_average</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/h%20centers-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># r ward
+
+# generating new data frame with cluster centers and cluster numbers
+h_ward_centers &lt;- userData_clust %&gt;% 
+                  mutate(cluster = as.factor(h_ward$cluster))
+
+h_ward_centers &lt;- h_ward_centers %&gt;% 
+                  group_by(cluster) %&gt;% 
+                  summarize_at(vars(total_Time:percentage_viewed),
+                               mean)
+
+h_ward_centers &lt;- h_ward_centers %&gt;% 
+                  mutate(cluster = c(1,3,2)) %&gt;% 
+                  arrange(cluster) %&gt;% 
+                  mutate(cluster = as.factor(cluster))
+
+# gather to bring in long format
+h_ward_centers_t &lt;- gather(h_ward_centers,
+                           key = &quot;variable&quot;,
+                           value = &quot;value&quot;,
+                           -cluster,
+                           factor_key = TRUE)
+
+
+# transpose matrix
+# h_ward_centers_transposed
+
+# ggplot to visualize centers
+pCenters_h_ward &lt;- h_ward_centers_t %&gt;% 
+                   ggplot(aes(x = variable,
+                              y = value))+ 
+                   geom_line(aes(color = cluster,
+                                 group = cluster),
+                             linetype = &quot;dashed&quot;,
+                             size = 0.6)+
+                   geom_point(size = 1,
+                              shape = 4)+
+                   geom_hline(yintercept = 0)+
+                   labs(title = &quot;H-ward k = 3&quot;, 
+                        subtitle = &quot;Cluster Centers&quot;)+
+                   scale_color_manual(values = c(&quot;#F8766D&quot;, &quot;#00BA38&quot;, &quot;#619CFF&quot;),
+                                      name = &quot;Cluster&quot;, 
+                                      labels = c(&quot;The Connoisseur&quot;, &quot;The Didactic&quot;, &quot;The Informed&quot;))+
+                   theme_minimal()+
+                   theme(text = element_text(size = 10),
+                         axis.text.x = element_text(angle = 45,
+                                                    hjust = 1),
+                         legend.title=element_text(size = 5),
+                         legend.text = element_text(size = 5))+
+                   theme(axis.title=element_blank(),
+                         text=element_text(family=&quot;Roboto&quot;),
+                         plot.title = element_text(face = &quot;bold&quot;))
+
+# F8766D red
+# 00BA38 green
+# 619CFF blue  
+
+pCenters_h_ward</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/h%20centers-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graph
+ggsave(file = &quot;center_ward.svg&quot;,
+       plot = pCenters_h_ward,
+       width = 7,
+       height = 3.5)</code></pre>
+<pre class="r"><code># PCA average
+pca_h_average &lt;- fviz_cluster(h_average,
+                              userData_clust, 
+                              palette = &quot;Set2&quot;, 
+                              geom = &quot;point&quot;,
+                              main = &quot;H average (k=3) cluster plot on two PC&quot;,
+                              ggtheme = theme_minimal())
+
+# PCA ward
+pca_h_ward &lt;- fviz_cluster(h_ward,
+                           userData_clust, 
+                           palette = &quot;Set2&quot;, 
+                           geom = &quot;point&quot;,
+                           main = &quot;H ward (k=3) cluster plot on two PC&quot;,
+                           ggtheme = theme_minimal())</code></pre>
+<p>Let’s plot the centers of H-clusters and compare the results with K-Means and PAM.</p>
+<pre class="r"><code># comparison of center plots
+
+# (center3 + pCenters) / (pCenters_h_average + pCenters_h_ward)
+
+# comparison of pca plots
+(pca3 + pca_pam) / (pca_h_average + pca_h_ward)</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/comparison%20all%20k3-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># extracting same cluster from different methods
+c2_k3 &lt;- k3 %&gt;% 
+         filter(cluster == 2) %&gt;% 
+         mutate(cluster = &quot;k_means&quot;)
+  
+c3_pam_centers &lt;- pam_centers %&gt;% 
+                  filter(cluster == 3) %&gt;% 
+                  mutate(cluster = &quot;pam&quot;)
+  
+c3_h_ward_centers &lt;- h_ward_centers %&gt;% 
+                     filter(cluster == 3) %&gt;% 
+                     mutate(cluster = &quot;ward&quot;)
+
+
+# combining and putting in long format
+method_centers &lt;- rbind(c2_k3,
+                        c3_pam_centers,
+                        c3_h_ward_centers)
+
+method_centers_t &lt;- gather(method_centers,
+                           key = &quot;variable&quot;,
+                           value = &quot;value&quot;,
+                           -cluster,
+                           factor_key = TRUE)
+
+# plotting
+bar_methods &lt;- ggplot(method_centers_t,
+                      aes(y = variable,
+                          x = value,
+                          fill = cluster)) + 
+               geom_bar(position = &quot;dodge&quot;,
+                        stat = &quot;identity&quot;,
+                        width = 0.7)+
+               labs(title = &quot;K-means and H-ward similarity of exemplary \&quot;didactic\&quot; cluster&quot;,
+                    subtitle =&quot;All three methods with k = 3&quot;,
+                    y = &quot;&quot;,
+                    x = &quot;Normalized Center&quot;)+
+               theme_minimal()+
+               theme(panel.grid.minor.x = element_blank(),
+                     text = element_text(family = &quot;Roboto&quot;),
+                     plot.title = element_text(face = &quot;bold&quot;))+
+               scale_fill_manual(values = c(&quot;#3D550C&quot;, &quot;grey&quot;, &quot;#59981A&quot;),
+                                 name = &quot;Didactic Cluster&quot;, 
+                                 labels = c(&quot;K-Means&quot;, &quot;PAM&quot;, &quot;H-Ward&quot;))
+
+bar_methods</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/compare%20one%20cluster%20three%20dimensions-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graph
+ggsave(&quot;bar_methods.png&quot;,
+       plot = bar_methods,
+       device = &quot;png&quot;,
+       width = 20,
+       height = 15,
+       units = &quot;cm&quot;)</code></pre>
+<p><strong>Conclusion:</strong> K means has already been discussed earlier. For pam we can see that cluster centers do not have such a clear tendency (also confirmed by PCA) but cluster sizes are more similar. As expected, due to skewed data H average did not yield any useful results with two clusters having only a handful of datapoints. H ward on the other side yielded similar results to k-means, both in cluster sizes and center positions.</p>
+</div>
+</div>
+<div id="subsample-check" class="section level1">
+<h1>Subsample check</h1>
+<p>At this stage you must have chosen the number of clusters. We will try to reinforce your conclusions and verify that they are not due to chance by dividing the data into two equal parts. Use K-means clustering, fixing the number of clusters to your choice, in these two data sets separately. If you get similar looking clusters, you can rest assured that you conclusions are robust. If not you might want to reconsider your decision.</p>
+<pre class="r"><code># splitting data into two --------------------------------------
+set.seed(1234)
+train_test_split &lt;- initial_split(userData_clust,
+                                  prop = 0.5)
+testing &lt;- testing(train_test_split) #50% of the data is set aside for testing
+training &lt;- training(train_test_split) #50% of the data is set aside for training
+
+# 1813 check same size
+testing &lt;- testing %&gt;% 
+           filter(row.names(testing) != 781)
+
+# fit k-means to each dataset
+kmeans_training &lt;- eclust(training,
+                          &quot;kmeans&quot;,
+                          k = 3,
+                          nstart = 50,
+                          graph = FALSE)
+kmeans_testing &lt;- eclust(testing,
+                         &quot;kmeans&quot;,
+                         k = 3,
+                         nstart = 50,
+                         graph = FALSE)
+
+kmeans_training$size</code></pre>
+<pre><code>## [1]  452  101 1259</code></pre>
+<pre class="r"><code>kmeans_testing$size</code></pre>
+<pre><code>## [1] 1100  635   77</code></pre>
+<pre class="r"><code># PCA plot training --------------------------------------
+
+pca_training &lt;- fviz_cluster(kmeans_training,
+                             training, 
+                             palette = &quot;Set2&quot;, 
+                             geom = &quot;point&quot;,
+                             main = &quot;K-means training (k=3)&quot;,
+                             ggtheme = theme_minimal())+
+                scale_colour_manual(values = c(&quot;#8DA0CB&quot;, &quot;#66C2A5&quot;, &quot;#FC8D62&quot;)) +
+                scale_fill_manual(values = c(&quot;#8DA0CB&quot;, &quot;#66C2A5&quot;, &quot;#FC8D62&quot;))+
+                scale_shape_manual(values = c(15, 16, 17))+
+                ylim(-6, 6)+
+                xlim(-3, 6)
+  
+
+# PCA plot testing --------------------------------------
+
+pca_testing &lt;- fviz_cluster(kmeans_testing,
+                            testing, 
+                            palette = &quot;Set2&quot;, 
+                            geom = &quot;point&quot;,
+                            main = &quot;K-means testing (k=3)&quot;,
+                            ggtheme = theme_minimal())+
+               scale_colour_manual(values = c(&quot;#FC8D62&quot;, &quot;#8DA0CB&quot;, &quot;#66C2A5&quot;)) +
+               scale_fill_manual(values = c(&quot;#FC8D62&quot;, &quot;#8DA0CB&quot;, &quot;#66C2A5&quot;))+
+               scale_shape_manual(values=c(17, 15, 16))+
+               ylim(-6, 6)+
+               xlim(-3, 6)
+
+
+# PCA plot all --------------------------------------------
+
+pca3_plot &lt;- fviz_cluster(model_kmeans_3clusters,
+                          userData_clust, 
+                          palette = &quot;Set2&quot;, 
+                          geom = &quot;point&quot;,
+                          main = &quot;K-means all data (k=3)&quot;,
+                          ggtheme = theme_minimal())+
+             scale_colour_manual(values = c(&quot;#FC8D62&quot;, &quot;#66C2A5&quot;, &quot;#8DA0CB&quot;)) +
+             scale_fill_manual(values = c(&quot;#FC8D62&quot;, &quot;#66C2A5&quot;, &quot;#8DA0CB&quot;))+
+             scale_shape_manual(values=c(17, 16, 15))+
+             ylim(-6, 6)+
+             xlim(-3, 6)
+
+
+pca3_plot</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20pca-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pca_training</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20pca-2.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pca_testing</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20pca-3.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># save graphs
+ggsave(&quot;pca_all.png&quot;,
+       plot = pca3_plot,
+       device = &quot;png&quot;,
+       width = 25,
+       height = 20,
+       units = &quot;cm&quot;)
+ggsave(&quot;pca_training.png&quot;,
+       plot = pca_training,
+       device = &quot;png&quot;,
+       width = 25,
+       height = 20,
+       units = &quot;cm&quot;)
+ggsave(&quot;pca_testing.png&quot;,
+       plot = pca_testing,
+       device = &quot;png&quot;,
+       width = 25,
+       height = 20,
+       units = &quot;cm&quot;)</code></pre>
+<pre class="r"><code># center plot training --------------------------------------
+
+# generating new data frame with cluster centers and cluster numbers
+training_centers &lt;- training %&gt;% 
+                    mutate(cluster = as.factor(kmeans_training$cluster))
+
+training_centers &lt;- training_centers %&gt;% 
+                    group_by(cluster) %&gt;% 
+                    summarize_at(vars(total_Time:percentage_viewed),
+                                 mean)
+
+# gather to bring in long format
+training_centers &lt;- gather(training_centers,
+                           key = &quot;variable&quot;,
+                           value = &quot;value&quot;,
+                           -cluster,
+                           factor_key = TRUE)
+
+# ggplot to visualize centers
+pCenters_training &lt;- training_centers %&gt;% 
+                     ggplot(aes(x = variable,
+                                y = value))+ 
+                     geom_line(aes(color = cluster,
+                                   group = cluster),
+                               linetype = &quot;dashed&quot;,
+                               size = 1)+
+                     geom_point(size=1,shape = 4)+
+                     geom_hline(yintercept = 0)+
+                     labs(title =&quot;K-means training Centers k = 3&quot;,
+                          fill = &quot;Cluster&quot;)+
+                     theme(text = element_text(size = 10),
+                           axis.text.x = element_text(angle = 45,
+                                                      hjust = 1),
+                           legend.title = element_text(size = 5),
+                           legend.text = element_text(size = 5))+
+                     theme(legend.position = &quot;bottom&quot;,
+                           axis.title = element_blank())
+
+# center plot testing --------------------------------------
+
+# generating new data frame with cluster centers and cluster numbers
+testing_centers &lt;- testing %&gt;% 
+                   mutate(cluster = as.factor(kmeans_testing$cluster))
+
+testing_centers &lt;- testing_centers %&gt;% 
+                   group_by(cluster) %&gt;% 
+                   summarize_at(vars(total_Time:percentage_viewed),
+                                mean)
+
+# gather to bring in long format
+testing_centers &lt;- gather(testing_centers,
+                          key = &quot;variable&quot;,
+                          value = &quot;value&quot;,
+                          -cluster,
+                          factor_key = TRUE)
+
+# ggplot to visualize centers
+pCenters_testing &lt;- testing_centers %&gt;% 
+                    ggplot(aes(x = variable,
+                               y = value))+ 
+                    geom_line(aes(color = cluster,
+                                  group = cluster),
+                              linetype = &quot;dashed&quot;,
+                              size = 1)+
+                    geom_point(size = 1,
+                               shape = 4)+
+                    geom_hline(yintercept = 0)+
+                    labs(title =&quot;K-means testing Centers k = 3&quot;, 
+                         fill = &quot;Cluster&quot;)+
+                    theme(text = element_text(size = 10),
+                          axis.text.x = element_text(angle = 45,
+                                                     hjust = 1),
+                          legend.title = element_text(size = 5),
+                          legend.text = element_text(size = 5))+
+                    theme(legend.position = &quot;bottom&quot;,
+                          axis.title = element_blank())
+
+pCenters_training </code></pre>
+<p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20centers-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>pCenters_testing</code></pre>
+<p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20centers-2.png" width="768" style="display: block; margin: auto;" /></p>
+<p>Although we could not see the exact same results, similar patterns between in sample and out of sample can be recognised. This is true for PCA and center analyses. We can thus conclude that the proposed clustering is not due to random chance.</p>
+</div>
+<div id="conclusions" class="section level1">
+<h1>Conclusions</h1>
+<p>Based on all the methods we could identify three clusters, Didactic, Informed, and Conoisseur that appeared repeatedly during different analyses.</p>
+<p>We chose k = 3 since it that number appeared in two selection methodologies and yielded good interpretability. However, we have seen that different methodologies suggested different number of k.</p>
+<p>Our results are based on the assumption that that the clusters are spherical and second that the clusters are of similar size. Robustness can be checked by sampling or even using completely new datasets. Confirmation bias, Texas sharpshooter fallacy, Bandwagon effect etc. are only some of the cognitivie issues that can affect clustering outcomes.</p>
+<p>The BBC is not based on profit increase, using external ads should thus not be the main emphasis. It is instead suggested to increase the user experience by suggesting adeguate channels by genre to relevant customers, and adapt streaming times and durations.</p>
+</div>
