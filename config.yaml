@@ -106,7 +106,7 @@ params:
         subtitle: Share of renewable energy production in the world
         title: Statistics project 2
         url: blogs/homework_energy
-      - image: energy.jpg
+      - image: data-science.jpg
         subtitle: BBC iPlayer streaming data
         title: Data science
         url: blogs/data_science
