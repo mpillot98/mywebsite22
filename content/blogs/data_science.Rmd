@@ -1218,7 +1218,6 @@ bar_methods <- ggplot(method_centers_t,
                                  labels = c("K-Means", "PAM", "H-Ward"))
 
 bar_methods
-
 ```
 
 **Conclusion:** K means has already been discussed earlier. For pam we can see that cluster centers do not have such a clear tendency (also confirmed by PCA) but cluster sizes are more similar. As expected, due to skewed data H average did not yield any useful results with two clusters having only a handful of datapoints. H ward on the other side yielded similar results to k-means, both in cluster sizes and center positions. 

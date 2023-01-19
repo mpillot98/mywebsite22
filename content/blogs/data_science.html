@@ -253,13 +253,6 @@ plot1 &lt;- userdatall %&gt;%
   
 plot1</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/visualisations-2.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graph
-ggsave(&quot;skewed_times.png&quot;,
-       plot = plot1,
-       device = &quot;png&quot;,
-       width = 23,
-       height = 13,
-       units = &quot;cm&quot;)</code></pre>
 <p><strong>Note:</strong> The x-axis on the whisker plot has been cropped in order to be able to show the box, while the x-axis on the histogram has been transformed to a log10 scale to represent the heavily skewed data. This can also be seen by the median lying to the left of the mean.</p>
 <p><strong>Observation:</strong> Since both variables are highly correlated, we can expect to observe similar patterns. In both cases, we have numerous very infrequent users and a few high outliers. We need to consider these outliers in our cluster analysis distorting the cluster to include these extreme points.</p>
 <div id="delete-infrequent-users" class="section level2">
@@ -545,13 +538,6 @@ improvement &lt;- ggplot(elbow_df,
 
 improvement</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/elbow-2.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graph
-ggsave(&quot;elbow_improvement.png&quot;,
-       plot = improvement,
-       device = &quot;png&quot;,
-       width = 15,
-       height = 13,
-       units = &quot;cm&quot;)</code></pre>
 </div>
 <div id="silhouette-method" class="section level2">
 <h2>Silhouette method</h2>
@@ -931,13 +917,6 @@ center2</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/center%20plots-4.png" width="768" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>center5</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/center%20plots-5.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graph
-ggsave(&quot;kmeans3_centers.png&quot;,
-       plot = bar3,
-       device = &quot;png&quot;,
-       width = 25,
-       height = 14,
-       units = &quot;cm&quot;)</code></pre>
 <p><strong>Interpretation:</strong> The cluster 2 focussing on children and learning becomes very pronounced with k = 3. We can also see customers in cluster 3 that focus on news, weather, sport, factual during the day. With k = 4 we can see that factual and news now are contained in two different clusters with the latter going along with weather. With k = 5 we can see a customer emerging that likes comedy, entertainment, and music at night.</p>
 <p><strong>Interpretation:</strong> From the PCA analysis we would tend to exclude k4 and k5 since we can observe large overlaps. When looking at cluster center, we can however see that new clusters emerge that have distinct characteristics. Also the cluster sizes become more similar to each other.</p>
 </div>
@@ -1232,11 +1211,6 @@ pCenters_h_ward &lt;- h_ward_centers_t %&gt;%
 
 pCenters_h_ward</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/h%20centers-2.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graph
-ggsave(file = &quot;center_ward.svg&quot;,
-       plot = pCenters_h_ward,
-       width = 7,
-       height = 3.5)</code></pre>
 <pre class="r"><code># PCA average
 pca_h_average &lt;- fviz_cluster(h_average,
                               userData_clust, 
@@ -1307,13 +1281,6 @@ bar_methods &lt;- ggplot(method_centers_t,
 
 bar_methods</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/compare%20one%20cluster%20three%20dimensions-1.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graph
-ggsave(&quot;bar_methods.png&quot;,
-       plot = bar_methods,
-       device = &quot;png&quot;,
-       width = 20,
-       height = 15,
-       units = &quot;cm&quot;)</code></pre>
 <p><strong>Conclusion:</strong> K means has already been discussed earlier. For pam we can see that cluster centers do not have such a clear tendency (also confirmed by PCA) but cluster sizes are more similar. As expected, due to skewed data H average did not yield any useful results with two clusters having only a handful of datapoints. H ward on the other side yielded similar results to k-means, both in cluster sizes and center positions.</p>
 </div>
 </div>
@@ -1398,25 +1365,6 @@ pca3_plot</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20pca-2.png" width="768" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>pca_testing</code></pre>
 <p><img src="/blogs/data_science_files/figure-html/out%20of%20sample%20check%20pca-3.png" width="768" style="display: block; margin: auto;" /></p>
-<pre class="r"><code># save graphs
-ggsave(&quot;pca_all.png&quot;,
-       plot = pca3_plot,
-       device = &quot;png&quot;,
-       width = 25,
-       height = 20,
-       units = &quot;cm&quot;)
-ggsave(&quot;pca_training.png&quot;,
-       plot = pca_training,
-       device = &quot;png&quot;,
-       width = 25,
-       height = 20,
-       units = &quot;cm&quot;)
-ggsave(&quot;pca_testing.png&quot;,
-       plot = pca_testing,
-       device = &quot;png&quot;,
-       width = 25,
-       height = 20,
-       units = &quot;cm&quot;)</code></pre>
 <pre class="r"><code># center plot training --------------------------------------
 
 # generating new data frame with cluster centers and cluster numbers

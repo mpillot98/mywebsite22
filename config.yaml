@@ -94,10 +94,10 @@ params:
         subtitle: Download my CV
         title: CV
         url: docs/CV Manon Pillot.pdf
-      - image: pic.jpg
-        subtitle: Why you should hire me
-        title: Cover Letter
-        url: blogs/cover_letter
+#      - image: pic.jpg
+#        subtitle: Why you should hire me
+#        title: Cover Letter
+#        url: blogs/cover_letter
       - image: omega.jpg
         subtitle: Omega analysis
         title: Statistics project 1
