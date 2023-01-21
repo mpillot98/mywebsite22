@@ -110,6 +110,10 @@ params:
         subtitle: BBC iPlayer streaming data
         title: Data science
         url: blogs/data_science
+      - image: homicide.jpg
+        subtitle: Homicide – a concern across demography?
+        title: Data Visualisation and Story Telling
+        url: docs/Homicide_Poster.pdf
 #      - image: energy.jpg
 #        subtitle: Share of renewable energy production in the world
 #        title: Machine learning
