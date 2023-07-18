@@ -93,7 +93,7 @@ params:
       - image: cv.jpg
         subtitle: Download my CV
         title: CV
-        url: docs/CV Manon Pillot.pdf
+        url: docs/CV Manon Pillot_1.pdf
 #      - image: pic.jpg
 #        subtitle: Why you should hire me
 #        title: Cover Letter
