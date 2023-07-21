@@ -1,0 +1,497 @@
+---
+categories:  
+- ""    #the front matter should be like the one found in, e.g., blog2.md. It cannot be like the normal Rmd we used
+- ""
+date: "2021-09-30"
+description: Data engineering # the title that will show up once someone gets to this page
+draft: false
+image: de.jpg # save picture in \static\img\blogs. Acceptable formats= jpg, jpeg, or png . Your iPhone pics wont work
+
+keywords: ""
+slug: part_1 # slug is the shorthand URL address... no spaces plz
+title: Machine Learning for Big Data - Part 1
+---
+
+# Load packages
+
+```{r Load packages, include = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Check to see if packages are installed
+check.packages <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[,
+                                                 "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg,
+                     dependencies = TRUE)
+  sapply(pkg,
+         require,
+         character.only = TRUE)}
+
+packageList <- c("ggplot2",
+                 "data.table",
+                 "reshape2",
+                 "recommenderlab",
+                 "recosystem")
+
+check.packages(packageList)
+rm(packageList,
+   check.packages)
+
+library(recommenderlab)
+library(ggplot2)                       
+library(data.table)
+library(reshape2)
+library(dplyr)
+library(Matrix)
+```
+
+
+# Step 1: Exploratory Analysis
+
+## Load data 
+
+> First, we need to start by loading the data.
+
+```{r Load data, warning = FALSE, error = FALSE, message = FALSE}
+# Location of the folder with movies & ratings data 
+setwd("C:/Users/manon/Desktop/Machine Learning for Big Data/Project/Part 1/ml-25m")
+
+list.files()
+rm(list = ls())
+
+movieData <- fread("movies.csv",
+                   stringsAsFactors=FALSE)
+ratingData <- fread("ratings.csv")
+```
+
+
+## ICE
+
+> Any project starts by Inspecting, Clean and Explore the data.
+
+### Inspect
+
+```{r Inspect, warning = FALSE, error = FALSE, message = FALSE}
+# General informations
+glimpse(movieData)
+glimpse(ratingData)
+```
+
+### Clean
+
+```{r Clean, warning = FALSE, error = FALSE, message = FALSE}
+cat("There are:", "\n",
+    length(unique(ratingData$userId)), "unique userIds in ratingData", "\n",
+    length(unique(ratingData$movieId)), "unique movieIds in ratingData", "\n",
+    length(unique(movieData$movieId)), "unique movieIds in movieData", "\n",
+    length(unique(movieData$title)), "unique titles in movieData")
+```
+
+> There are different lengths of unique movieId in the movieData and ratingData. Therefore, we need to clean and remove duplicates.
+
+```{r Remove_duplicates, warning = FALSE, error = FALSE, message = FALSE}
+# Look for any movie title duplicates
+repeatMovies <- names(which(table(movieData$title) > 1))
+removeRows <- integer()
+
+# Check, remove and store all duplicates in a vector
+for(i in repeatMovies){
+  repeatMovieLoc <- which(movieData$title == i)
+  tempGenre <- paste(movieData$genres[repeatMovieLoc],
+                     collapse="|")
+  tempGenre <- paste(unique(unlist(strsplit(tempGenre,
+                                            split = "\\|")[[1]])),
+                     collapse = "|")
+  movieData$genres[repeatMovieLoc[1]] <- tempGenre
+
+  repeatMovieIdLoc <- which(ratingData$movieId %in% movieData$movieId[repeatMovieLoc[-1]])
+  ratingData$movieId[repeatMovieIdLoc] <- movieData$movieId[repeatMovieLoc[1]]
+  removeRows <- c(removeRows,
+                  repeatMovieLoc[-1])}
+
+movieData$movieId[removeRows]
+movieData <- movieData[-removeRows,]
+movieData[movieData$title == repeatMovies[1],]
+movieData[movieData$title == repeatMovies[2],]
+
+# Let's remove non useful variables to increase the speed
+rm(i,
+   removeRows,
+   repeatMovieIdLoc,
+   repeatMovieLoc,
+   repeatMovies,
+   tempGenre)
+
+# Take best rating if a userId rated a movie multiple times
+ratingData_dt <- as.data.table(ratingData)
+ratingData <- ratingData_dt[,
+                            .(rating = max(rating)),
+                            by = .(userId, movieId)]
+
+uniqueN(ratingData,
+        by = "movieId")
+uniqueN(movieData,
+        by = "movieId")
+
+moviesNotInRatingData <- setdiff(unique(movieData[,
+                                                  movieId]),
+                                 unique(ratingData[,
+                                                   movieId]))
+rm(ratingData_dt)
+```
+
+```{r Check, warning = FALSE, error = FALSE, message = FALSE}
+# Check that the data is cleaned
+str(movieData)
+summary(movieData)    
+head(movieData)
+summary(ratingData)   
+head(ratingData)
+
+# Check that there are no more duplicates
+length(movieData) == length(unique(movieData))
+length(ratingData) == length(unique(ratingData))
+```
+
+```{r Matrix, warning = FALSE, error = FALSE, message = FALSE}
+# Vector with unique users
+users <- unique(ratingData$userId)
+# Vector with unique movies
+movies <- unique(ratingData$movieId)
+
+# Create a new column
+ratingData$row <- match(ratingData$userId,
+                        users)
+# Create a new row
+ratingData$col <- match(ratingData$movieId,
+                        movies)
+
+# Create matrix
+ratingData_sparse <- sparseMatrix(i = ratingData$row,
+                                  j = ratingData$col,
+                                  x = ratingData$rating,
+                                  dimnames = list(users,
+                                                  movies))
+
+# Check matrix size
+dim(ratingData_sparse)
+```
+
+
+## Visualisations 
+
+### Build a histogram of show frequency (of ratings) of all movies
+
+```{r Visualisation 1, warning = FALSE, error = FALSE, message = FALSE}
+# Create plot
+mean_rating_by_movies <- ratingData %>%
+  group_by(movieId) %>%
+  summarise(mean_rating = mean(rating))
+  
+
+ggplot(mean_rating_by_movies,
+       aes(x = mean_rating))+ 
+  geom_histogram(binwidth = 0.3,
+                 colour = "#000000",
+                 fill = "#004CA3")+ 
+  theme_classic()+
+  labs(title = "Distribution of average movie ratings by movie", 
+       x = "Mean movie rating",
+       y = "Count",
+       caption = "MovieLens 25M Dataset. (2021, 2 mars). GroupLens. https://grouplens.org/datasets/movielens/25m/")
+```
+
+> The distribution of average movie ratings grouped by movies is normally distributed.
+
+### Build a histogram of show frequency (of ratings) of all users
+
+```{r Visualisation 2, warning = FALSE, error = FALSE, message = FALSE}
+# Create plot
+mean_rating_by_user <- ratingData %>%
+  group_by(userId) %>%
+  summarise(mean_rating = mean(rating))
+  
+
+ggplot(mean_rating_by_user,
+       aes(x = mean_rating))+ 
+  geom_histogram(binwidth = 0.3,
+                 colour = "#000000",
+                 fill = "#004CA3")+ 
+  theme_classic()+
+  labs(title = "Distribution of average movie ratings by user", 
+       x = "Mean movie rating",
+       y = "Count",
+       caption = "MovieLens 25M Dataset. (2021, 2 mars). GroupLens. https://grouplens.org/datasets/movielens/25m/")
+```
+
+> Once again, the distribution of average movie ratings grouped by movies is normally distributed.
+
+
+# Step 2: Data Engineering
+
+```{r U_filter, warning = FALSE, error = FALSE, message = FALSE}
+ratingData_sparse <- as(ratingData_sparse,
+                        "realRatingMatrix")
+
+# Let's filter for users who rated at least 50 movies & for movies rated by at least 20 users
+movie_ratings <- ratingData_sparse[rowCounts(ratingData_sparse) >= 50,
+                                 colCounts(ratingData_sparse) >= 20]
+
+# Check matrix size
+dim(movie_ratings)
+```
+
+> There are now 102492 rows and 18424 columns.
+
+# Step 3: Model Build
+
+> The data is too large, so that we will take only 1% of it.
+
+```{r 5% Selection, warning = FALSE, error = FALSE, message = FALSE}
+# Ensure reproducibility
+set.seed(123)
+
+# Number of rows in the movie_ratings matrix
+n <- nrow(movie_ratings)
+
+# Selecting 1% randomly
+sample_index <- sample(1:n,
+                       floor(n * 0.01))
+
+# Extract the rows that corresponds to the selected index
+sample_ratings <- movie_ratings[sample_index, ]
+```
+
+## Item Based Collaborative Filtering
+
+```{r IBCF model, warning = FALSE, error = FALSE, message = FALSE}
+Sys.time()
+set.seed(1)
+
+# Split the data into train and test sets
+e <- evaluationScheme(sample_ratings,
+                      method = "split",
+                      train = 0.8,
+                      given = -5)
+
+# Train the model using the train dataset
+recommen_model_IB <- Recommender(getData(e,
+                                  "train"),
+                          method = "IBCF", 
+                          param = list(normalize = "center",
+                                     method = "Cosine",
+                                     k=350))
+
+# Make predictions on the test dataset
+prediction_IB <- predict(object = recommen_model_IB,
+                      newdata = getData(e,
+                                        "known"),
+                      type = "ratings")
+
+# Calculate RMSE, MAE and MSE using the raw dataset
+calcPredictionAccuracy(x = prediction_IB,
+                       data = getData(e,
+                                      "unknown"))
+
+Sys.time()
+```
+
+## User Based Collaborative Filtering
+
+```{r UBCF model, warning = FALSE, error = FALSE, message = FALSE}
+Sys.time()
+set.seed(1)
+
+# Train the model using the train dataset
+recommen_model_UB <- Recommender(getData(e,
+                                  "train"),
+                                 method = "UBCF",
+                                 param = list(normalize = "center",
+                                              method = "Cosine",
+                                              nn = 25))
+
+# Make predictions on the test dataset
+prediction_UB <- predict(object = recommen_model_UB,
+                      newdata = getData(e,
+                                        "known"),
+                      type = "ratings")
+
+# Calculate RMSE, MAE and MSE using the raw dataset
+calcPredictionAccuracy(x = prediction_UB,
+                       data = getData(e,
+                                      "unknown"))
+Sys.time()
+```
+
+
+## Model Based Collaborative Filtering using Matrix Factorisation
+
+```{r Matrix model, warning = FALSE, error = FALSE, message = FALSE}
+Sys.time()
+set.seed(1)
+
+# Train the model using the train dataset
+recommen_model_MF <- Recommender(getData(e,
+                                         "train"),
+                                 method = "LIBMF",
+                                 param = list(normalize = "center",
+                                              method = "Cosine",
+                                              nn = 25))
+
+# Make predictions on the test dataset
+prediction_MF <- predict(object = recommen_model_MF,
+                         newdata = getData(e,
+                                           "known"),
+                         type = "ratings")
+
+# Calculate RMSE, MAE and MSE using the raw dataset
+calcPredictionAccuracy(x = prediction_MF,
+                       data = getData(e,
+                                      "unknown"))
+Sys.time()
+```
+
+> With the 3 models above, we have tried several values for nn = nearest neighbours; increasing its value increases the accuracy; however, this may lead to overfitting.
+Here we are normalizing the data by centring. To increase our accuracy, we could normalize the data by scaling the data to obtain a unit variance.
+Additionally, we can change the method for Pearson correlation instead of Cosine or Jaccard.
+Finally, we can also change the values for the train-test split to decrease the RMSE.
+
+
+# Step 4: Report on Performance of model and parameter tuning
+
+## Assess performance of the above models for different values of ‘m’ and ‘n’. Hint: Try m <- c(10, 20, 50, 100, 200); m <- n; modelNames <- c(IBCF, UBCF, LIBMF); expand.grid(m,n,modelNames)
+
+```{r Variables, warning = FALSE, error = FALSE, message = FALSE}
+# Set our variables with diff values
+n <- c(10, 20, 50, 100, 200)
+m <- c(10, 20, 50, 100, 200)
+modelNames <- c('UBCF', 'LIBMF', 'IBCF')
+```
+
+## Which model and combination of m & n provides the lowest RMSE?
+
+```{r Loop, warning = FALSE, error = FALSE, message = FALSE}
+Sys.time()
+
+# Create the loop
+for (user_ratings in n)
+{for (movie_views in m)
+  # Select for specific m and n
+  {movie_ratings_test <- movie_ratings[rowCounts(movie_ratings) >= user_ratings,
+                                       colCounts(movie_ratings) >= movie_views]
+
+  print(paste('n:',
+              user_ratings))
+  print(paste('m:',
+              movie_views))
+  
+  # Number of rows
+  rows <- nrow(movie_ratings_test)
+  
+  # Select 1% randomly
+  sample_index_loop <- sample(1:rows,
+                              floor(rows * 0.01))
+  
+  # Extract the rows that corresponds to the selected index
+  sample_ratings_loop <- movie_ratings_test[sample_index_loop, ]
+  
+  
+  # Split the data into train and test sets
+  ex <- evaluationScheme(sample_ratings_loop,
+                         method = "split",
+                         train = 0.8,
+                         given = -5)
+  
+  print("IBCF Model")
+  
+  # Train the model using the train dataset
+  recommen_model_IB_loop <- Recommender(getData(ex,"train"),
+                                        method = "IBCF",
+                                        param = list(normalize = "center",
+                                                   method = "Cosine",
+                                                   k = 350))
+  
+  # Make predictions on the test dataset
+  prediction_IB_loop <- predict(object = recommen_model_IB_loop,
+                                newdata = getData(ex,"known"),
+                                type = "ratings")
+
+  ## Calculate RMSE using the raw dataset
+  rmse_ibcf <- calcPredictionAccuracy(x = prediction_IB_loop,
+                                      data = getData(ex,
+                                                     "unknown"))[1]
+  
+  print(paste('IBCF RMSE:',
+              rmse_ibcf))
+  
+  
+  rm(recommen_model_IB_loop,
+     prediction_IB_loop)
+  cat("\n")
+  
+  print("UBCF Model")
+  
+  # Train the model using the train dataset
+  recommen_model_UB_loop <- Recommender(getData(ex,
+                                                "train"),
+                                        method = "UBCF",
+                                        param = list(normalize = "center",
+                                                     method="Cosine",
+                                                     nn=25))
+  
+  # Make predictions on the test dataset
+  prediction_UB_loop <- predict(object = recommen_model_UB_loop,
+                                newdata = getData(ex,
+                                                  "known"),
+                                type = "ratings")
+  
+  # Calculate RMSE using the raw dataset
+  rmse_ubcf <- calcPredictionAccuracy(x = prediction_UB_loop,
+                                      data = getData(ex,
+                                                     "unknown"))[1]
+  
+  print(paste('UBCF RMSE:',
+              rmse_ubcf))
+  
+  cat("\n")
+  rm(recommen_model_UB_loop,
+     prediction_UB_loop)
+  
+  print("LIBMF Model")
+  
+  # Train the model using the train dataset
+  recommen_model_MF_loop <- Recommender(getData(ex,"train"),
+                                        method = "LIBMF",
+                                        param = list(normalize = "center",
+                                                     method = "Cosine",
+                                                     nn = 25))
+
+  # Make predictions on the test dataset
+  prediction_MF_loop <- predict(object = recommen_model_MF_loop,
+                                newdata = getData(ex,"known"),
+                                type = "ratings")
+
+  # Calculate RMSE using the raw dataset
+  libmf_rmse <- calcPredictionAccuracy(x = prediction_MF_loop,
+                                       data = getData(ex,
+                                                      "unknown"))[1]
+  
+  print(paste("LIBMF RMSE:",
+              libmf_rmse))
+  
+  cat("\n")
+  
+  rm(recommen_model_MF_loop,
+     prediction_MF_loop,
+     rmse_ibcf,
+     rmse_ubcf,
+     libmf_rmse)}}
+
+Sys.time()
+```
+
+> Thanks to our loop, the best RMSE is 0.819297663799955 for n = 100 and M = 50.
+We would get a better RMSE with a computer that can run the entire dataset instead of 1%.
+Another technique we could try to decrease our RMSE would be using a different similarity measure, such as Pearson correlation or Jaccard similarity.
+Finally, we could experiment with different values of k for IBCF, nn for UBCF and the number of factors for MF.

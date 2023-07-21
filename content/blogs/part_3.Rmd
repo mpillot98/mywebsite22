@@ -1,0 +1,450 @@
+---
+categories:  
+- ""    #the front matter should be like the one found in, e.g., blog2.md. It cannot be like the normal Rmd we used
+- ""
+date: "2021-09-30"
+description: Support Vector Machine # the title that will show up once someone gets to this page
+draft: false
+image: svm.jpg # save picture in \static\img\blogs. Acceptable formats= jpg, jpeg, or png . Your iPhone pics wont work
+
+keywords: ""
+slug: part_3 # slug is the shorthand URL address... no spaces plz
+title: Machine Learning for Big Data - Part 3
+---
+
+# Load packages
+
+```{r Load packages, include = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr) # for data wrangling
+library(ggplot2) # for graphics
+library(rsample) # for efficient data splitting
+library(caret) # for classification and regression training
+library(kernlab) # for fitting SVMs
+library(e1071) # for fitting SVMs
+library(recipes)
+library(keras)
+library(tensorflow)
+library(tfruns)
+library(data.table)
+```
+
+
+# Step 1: Exploratory Analysis
+
+## Load data 
+
+> First, we need to start by loading the data.
+
+```{r Load data, warning = FALSE, error = FALSE, message = FALSE}
+# Location of the folder with movies & ratings data 
+setwd("C:/Users/manon/Desktop/Term 2/Machine Learning for Big Data/Project/Part 1/ml-25m")
+
+list.files()
+rm(list = ls())
+
+movieData <- fread("movies.csv",
+                   stringsAsFactors=FALSE)
+ratingData <- fread("ratings.csv")
+pca <- readRDS("C:/Users/manon/Desktop/Term 2/Machine Learning for Big Data/Project/Part 3/features_fromPart2.RDS")
+```
+
+
+## ICE
+
+> Any project starts by Inspecting, Clean and Explore the data.
+
+### Inspect
+
+```{r Inspect, warning = FALSE, error = FALSE, message = FALSE}
+# General informations
+glimpse(movieData)
+glimpse(ratingData)
+glimpse(pca)
+
+summary(movieData)
+summary(ratingData)
+summary(pca)
+```
+
+
+### Clean
+
+```{r Clean, warning = FALSE, error = FALSE, message = FALSE}
+cat("There are:", "\n",
+    length(unique(ratingData$userId)), "unique userIds in ratingData", "\n",
+    length(unique(ratingData$movieId)), "unique movieIds in ratingData", "\n",
+    length(unique(movieData$movieId)), "unique movieIds in movieData", "\n",
+    length(unique(movieData$title)), "unique titles in movieData")
+```
+
+> There are different lengths of unique movieId in the movieData and ratingData. Therefore, we need to clean and remove duplicates.
+
+```{r Remove_duplicates, warning = FALSE, error = FALSE, message = FALSE}
+# Look for any movie title duplicates
+repeatMovies <- names(which(table(movieData$title) > 1))
+removeRows <- integer()
+
+# Check, remove and store all duplicates in a vector
+for(i in repeatMovies){
+  repeatMovieLoc <- which(movieData$title == i)
+  tempGenre <- paste(movieData$genres[repeatMovieLoc],
+                     collapse="|")
+  tempGenre <- paste(unique(unlist(strsplit(tempGenre,
+                                            split = "\\|")[[1]])),
+                     collapse = "|")
+  movieData$genres[repeatMovieLoc[1]] <- tempGenre
+
+  repeatMovieIdLoc <- which(ratingData$movieId %in% movieData$movieId[repeatMovieLoc[-1]])
+  ratingData$movieId[repeatMovieIdLoc] <- movieData$movieId[repeatMovieLoc[1]]
+  removeRows <- c(removeRows,
+                  repeatMovieLoc[-1])}
+
+movieData$movieId[removeRows]
+movieData <- movieData[-removeRows,]
+movieData[movieData$title == repeatMovies[1],]
+movieData[movieData$title == repeatMovies[2],]
+
+# Let's remove non useful variables to increase the speed
+rm(i,
+   removeRows,
+   repeatMovieIdLoc,
+   repeatMovieLoc,
+   repeatMovies,
+   tempGenre)
+
+# Take best rating if a userId rated a movie multiple times
+ratingData_dt <- as.data.table(ratingData)
+ratingData <- ratingData_dt[,
+                            .(rating = max(rating)),
+                            by = .(userId, movieId)]
+
+uniqueN(ratingData,
+        by = "movieId")
+uniqueN(movieData,
+        by = "movieId")
+
+moviesNotInRatingData <- setdiff(unique(movieData[,
+                                                  movieId]),
+                                 unique(ratingData[,
+                                                   movieId]))
+rm(ratingData_dt)
+```
+
+```{r Check, warning = FALSE, error = FALSE, message = FALSE}
+# Check that the data is cleaned
+str(movieData)
+summary(movieData)    
+head(movieData)
+summary(ratingData)   
+head(ratingData)
+
+# Check that there are no more duplicates
+length(movieData) == length(unique(movieData))
+length(ratingData) == length(unique(ratingData))
+```
+
+```{r Dummy variables, warning = FALSE, error = FALSE, message = FALSE}
+# Create genre  vector
+genres <- c("Adventure",
+            "Animation",
+            "Children",
+            "Comedy",
+            "Fantasy",
+            "Romance",
+            "Drama",
+            "Action",
+            "Crime",
+            "Thriller",
+            "Horror",
+            "Mystery",
+            "Sci-Fi",
+            "IMAX",
+            "Documentary",
+            "War",
+            "Musical",
+            "Western",
+            "Film-Noir",
+            "(no genres listed)")
+
+# Ducplicate the movieData to not impact it
+movie_dummy <- movieData
+
+# Create a loop that creates a new column and a binary variable
+for (i in genres) {movie_dummy[,
+                               paste0(i)] <- as.integer(grepl(i,
+                                                              movie_dummy$genres,
+                                                              fixed = TRUE))}
+
+# Remove genres column
+movie_dummy <- movie_dummy %>% 
+  select(-genres)
+
+# Remove any rows with missing movieId
+movie_dummy <- movie_dummy[complete.cases(movie_dummy),]
+```
+
+```{r Join, warning = FALSE, error = FALSE, message = FALSE}
+# Calculate average ratings
+ratingData <- ratingData %>%
+  group_by(movieId) %>%
+  summarise(avg_rating = mean(rating))
+
+# We're using inner join so we only keep the movies common to all datasets, allowing us to reduce the size of the file
+joined_dataset <- movie_dummy %>%
+  inner_join(pca, by = "movieId") %>%
+  inner_join(ratingData,
+             by = "movieId") %>% 
+  select(-title)
+```
+
+
+# Step 2: First task
+
+```{r First task, warning = FALSE, error = FALSE, message = FALSE}
+# Create a binary variable 'excellent'
+joined_dataset$excellent <- as.integer(joined_dataset$avg_rating > 3.75)
+
+# We split our dataset into training and test set of respectively 80% and 20%
+set.seed(123)  # for reproducibility
+
+data_split <- initial_split(joined_dataset,
+                            prop = 0.8)
+data_train <- training(data_split)
+data_test  <- testing(data_split)
+```
+
+
+## Build the SVM model
+
+```{r SVM, warning = FALSE, error = FALSE, message = FALSE}
+# Different models
+kernel <- c("linear",
+            "radial",
+            "sigmoid")
+
+# Penaliser coefficient
+cost <- c(1, 5, 10, 100, 200)
+
+# Create empty data frame
+resume <- data.frame(kernel = character(),
+                     cost = numeric(),
+                     rmse = numeric(),
+                     stringsAsFactors = FALSE)
+
+columns = c("kernel",
+            "cost",
+            "rmse") 
+colnames(resume) = columns
+
+# Create a loop to try every possible outcome
+for (k in kernel) {
+  for (c in cost) {
+    svm <- svm(excellent ~ .,
+               data = data_train,
+               kernel = k,
+               cost = c)
+    predictions <- predict(svm,
+                           newdata = data_test)
+    confusion_matrix <- table(data_test$excellent,
+                              predictions)
+    rmse <- sqrt(mean((data_test$excellent - predictions)^2))
+    resume <- rbind(resume,
+                    data.frame(kernel = k,
+                               cost = c,
+                               rmse = rmse))}}
+
+# Show table
+resume
+```
+
+
+> From this table, we can see that we should take the model with the lowest rmse, Radial model with cost of 5 has the best rmse, meaning that this model is the most accurate at predicting the outcome variable compared to the other models with different cost parameters.
+Radial can capture complex nonlinear relationships compared to linear models, making it more accurate.
+The rmse is still a little high, so we know there is no risk of overfitting for the radial models.
+We notice that all sigmoid models have a really high rmse. It is known that sigmoid can be sensitive to the choice of parameters, which can lead to overfitting the data or underfitting it. It is probably what happened in our case.
+
+## Change rating to 4
+
+```{r Change rating, warning = FALSE, error = FALSE, message = FALSE}
+# Remove the column from task 1
+joined_dataset <- joined_dataset %>%
+  select(-excellent)
+
+# Create a binary variable 'excellent'
+joined_dataset$excellent <- as.integer(joined_dataset$avg_rating > 4)
+
+# We split our dataset into training and test set of respectively 80% and 20%
+set.seed(123)  # for reproducibility
+
+data_split_4 <- initial_split(joined_dataset,
+                              prop = 0.8)
+data_train_4 <- training(data_split_4)
+data_test_4  <- testing(data_split_4)
+```
+
+
+## Build the second SVM model
+
+```{r Second SVM, warning = FALSE, error = FALSE, message = FALSE}
+# Create empty data frame
+resume_4 <- data.frame(kernel = character(),
+                     cost = numeric(),
+                     rmse = numeric(),
+                     stringsAsFactors = FALSE)
+
+colnames(resume_4) = columns
+
+# Create a loop to try every possible outcome
+for (k in kernel) {
+  for (c in cost) {
+    svm_4 <- svm(excellent ~ .,
+               data = data_train_4,
+               kernel = k,
+               cost = c)
+    predictions_4 <- predict(svm_4,
+                           newdata = data_test_4)
+    confusion_matrix_4 <- table(data_test_4$excellent,
+                              predictions_4)
+    rmse_4 <- sqrt(mean((data_test_4$excellent - predictions_4)^2))
+    resume_4 <- rbind(resume_4,
+                    data.frame(kernel = k,
+                               cost = c,
+                               rmse = rmse_4))}}
+
+# Show table
+resume_4
+```
+
+> Compared to the previous table, the best model is still radial but with a cost of 10 instead of 5. The RMSE passed from 0.2503479	to 0.2017594, which is a significant decrease; it indicates that the model's predictions are closer to the actual values.
+The second model uses a higher classification threshold, meaning fewer observations are considered 'excellent'. This could result in a smaller number of positive cases. However, it's also important to consider possible overfitting when evaluating the performances.
+
+
+## Build logistic regression model
+
+```{r logistic regression model, warning = FALSE, error = FALSE, message = FALSE}
+# logistic regression model
+glm_model <- glm(excellent ~ .,
+               data = data_train,
+               family = "binomial")
+predi <- predict(glm_model, newdata = data_test, type = "response")
+t <- 0.5
+
+
+predi <- ifelse(predi >= t, 1, 0)
+
+confusion_matrix_glm <- table(data_test$excellent,
+                              predi)
+rmse <- sqrt(mean((data_test$excellent - predi)^2))
+
+confusion_matrix_glm
+rmse
+```
+
+> We can compare our two RMSEs for the logistic regression and the one for SVM. Our best model for SVM has an RMSE of 0.2503479, whereas the LM has an RMSE of 0.1013606. This is significantly smaller, meaning the logistic regression will make fewer errors.
+Therefore the logistic regression model is a better model to predict if a movie will get an excellent rating.
+
+
+# Step 2: Second task
+
+```{r Second task, warning = FALSE, error = FALSE, message = FALSE}
+# Remove the column from task 1
+joined_dataset <- joined_dataset %>%
+  select(-excellent)
+
+# We split the original dataset into training and test set of respectively 80% and 20%
+set.seed(123)  # for reproducibility
+
+split_data <- initial_split(joined_dataset,
+                            prop = 0.8)
+train_data <- training(split_data)
+test_data  <- testing(split_data)
+```
+
+
+## Preprocess/Normalize the Data
+
+```{r Normalizing, warning = FALSE, error = FALSE, message = FALSE}
+# Create recipe
+norm_obj <- recipe(avg_rating ~ .,
+                   data = train_data) %>%
+  step_sqrt(avg_rating) %>%
+  step_center(avg_rating) %>%
+  step_scale(avg_rating) %>%
+  prep(data = train_data)
+
+# Print the recipe object
+norm_obj
+
+train_normalized <- bake(norm_obj,
+                         train_data)
+```
+
+
+## Build the NN model
+
+```{r ANN, warning = FALSE, error = FALSE, message = FALSE}
+# Building our Artificial Neural Network
+ann_model <- keras_model_sequential() %>%
+# First hidden layer
+  layer_dense(units = 35,
+              activation = "relu",
+              input_shape = ncol(train_normalized)) %>%
+# Dropout to prevent overfitting
+  layer_dropout(rate = 0.2) %>%
+# Second hidden layer
+  layer_dense(units = 16,
+              activation = "relu") %>%
+# Dropout to prevent overfitting
+  layer_dropout(rate = 0.2) %>%
+# Third hidden layer
+  layer_dense(units = 8,
+              activation = "relu") %>%
+# Dropout to prevent overfitting
+  layer_dropout(rate = 0.2) %>%
+# Output layer
+  layer_dense(units = 1,
+              activation = "sigmoid")
+
+# Compile NN
+ann_model %>% compile(
+  loss = "mean_squared_error",
+  optimizer = 'adam',
+  metrics = c("mean_absolute_error"))
+
+# Display model architecture
+ann_model
+```
+
+```{r Training, warning = FALSE, error = FALSE, message = FALSE}
+set.seed(123)  # for reproducibility
+
+# Train model
+history <- fit(
+  object = ann_model, 
+  x = as.matrix(train_normalized), 
+  y = train_normalized$avg_rating,
+  batch_size = 140, # How many values are taken per iterations
+  epochs = 100, # Number of iterations
+  validation_split = 0.30 #to include 30% of the data for model validation, which prevents overfitting.
+)
+```
+
+> We decided to include the mean absolute error as the primary metric to compare the ANN and linear models.
+We notice that after 100 iterations, the mean absolute error does not evolve anymore.
+Additionally, the val loss is constant and under 1, which is a good sign as we are not overfitting the data.
+
+
+## Build the LM
+
+```{r Linear model, warning = FALSE, error = FALSE, message = FALSE}
+# linear model
+lm_model <- lm(avg_rating ~ .-Adventure -PC6 -PC9,
+               data = train_data)
+summary(lm_model)
+```
+
+> We have removed all the irrelevant variables, and the p-value is lower than 5% so that we can keep the model. We have tried using log and poly to increase the rsquared, but the changes were minimal.
+The artificial neural network model has a mean absolute error of 0.7475 for the validation set. On the other hand, the linear regression model has a residual standard error of 0.3286 and an adjusted R-squared of 0.2934, meaning that the model explains about 30% of the variance.
+Therefore the linear model will make fewer errors when predicting a movie rating.

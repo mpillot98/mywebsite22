@@ -1,0 +1,313 @@
+---
+categories:  
+- ""    #the front matter should be like the one found in, e.g., blog2.md. It cannot be like the normal Rmd we used
+- ""
+date: "2021-09-30"
+description: Machine Learning # the title that will show up once someone gets to this page
+draft: false
+image: ml.jpg # save picture in \static\img\blogs. Acceptable formats= jpg, jpeg, or png . Your iPhone pics wont work
+
+keywords: ""
+slug: part_2 # slug is the shorthand URL address... no spaces plz
+title: Machine Learning for Big Data - Part 2
+---
+
+```{r Setup, include = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+library(knitr)
+library(tidyverse)
+library(tm) # package for text mining  
+library(SnowballC) # for stemming words
+library(stringr) # package to count number of words in a string
+library(RWeka) # package for ngrams
+
+library(data.table)
+library(dplyr)
+library(wordcloud)
+
+knitr::opts_chunk$set(
+  tidy = FALSE,   # display code as typed
+  size = "small") # slightly smaller font for code
+```
+
+
+# Data Preprocessing
+
+Continue working with the MovieLens Data focusing on the distinct movies (specified by movieId variable) and the tags that users provided for that movie (specified by tag variable).
+In this section you will work with the large dataset of 25 million movie ratings. provided by ml-25m.zip located here: https://grouplens.org/datasets/movielens/25m/ 
+Within the zipped file you will find a csv file called "tags.csv".
+It contains 1 million tag observations provided by users for 62000 movies.  
+
+The overall task of Part 2 is two fold:
+- Perform Text Mining on the tag data to obtain a Document Term Matrix
+- Perform dimensionality reduction using PCA to obtain scores/coordinates (i.e. new features) which will be used in the next Part 3 with Christos.
+
+Start by reading in the dataset "ml-25m/tags.csv" and only keep the movieId and the tag columns (the resulting dimensionality should be 1,093,360 by 2).
+
+Next, create a dataframe called tb which contains unique movies with a single tag per each movie (i.e. aggregate the tags from different users per each movie into a single string).
+The resulting tb dimensionality should be 45,251 by 2.
+
+Next, only keep those movies (observations / rows) for which the string word count is 100 or more (i.e. for which the tag contains at least 100 words providing the users feedback on that movie). 
+This is to ensure that we have enough text for each movie which will become a document in the Document Term Matrix.
+The resulting tb dimensionality should be 2918 x 2.
+
+Lastly, remove any special characters from all of the tags.
+You may need to research the solution to this (an example solution could contain gsub() function). 
+
+```{r Read Data, warning = FALSE, error = FALSE, message = FALSE}
+setwd("C:/Users/manon/Desktop/Machine Learning for Big Data/Project/Part 1/ml-25m")
+
+list.files()
+rm(list = ls())
+
+# Load data
+tagsData <- fread("tags.csv")
+
+# Select only movieId & tag columns
+tags_specific <- tagsData %>%
+  select(movieId,
+         tag)
+
+# Get all tags for each movie
+tb <- tags_specific %>%
+  group_by(movieId) %>%
+  summarize(tag = paste(tag,
+                        collapse = ", "))
+
+# Filter for more than 100 words
+tb <- tb %>%
+  filter(as.numeric(sapply(strsplit(tag,
+                                    " "),
+                           length)) > 100)
+
+# Remove non alphabetical characters
+tb <- tb %>%
+  mutate(tag = str_replace_all(tag,
+                               "[^[:alnum:][:space:]]",
+                               ""))
+```
+
+
+# Text Mining 
+
+Your task is to build a Document Term Matrix containing individual movies as documents and terms/words occurring in tags as columns. 
+Hint: when loading data from a dataframe you can use Corpus(VectorSource())
+
+It is up to you to decide the best way to preprocess the data: e.g. make all words lower case, remove punctuation etc.
+You may decide to remove sparse terms, if you do, explain what you did and how you did it. 
+Also you should decide if you should create DTM-TF, DTM-TFIDF, bigram based DTM etc, and justify your answer.
+Ensure to explain each of your data preprocessing decisions.
+Think carefully about how your data will be used (i.e. you are using text mining and PCA to create features to be used in further analysis such as SVM).
+
+If you decide to create a DTM that also contains bigrams, you should be careful as your matrix will become sparse very quickly. 
+After addressing the sparsity, please report the number of bigrams that is present in your final DTM.
+Hints: to use bigrams research:
+- library(RWeka) 
+- VCorpus() and VectorSource() functions
+- NGramTokenizer() and Weka_control() functions
+
+```{r Text Mining, warning = FALSE, error = FALSE, message = FALSE}
+# Build Corpus
+corp_tag <- Corpus(VectorSource(tb$tag))
+# Inspect the first 5 elements
+tm::inspect(corp_tag[1:5])
+
+# Obtain Frequencies
+DTM_tag <- DocumentTermMatrix(corp_tag,
+                               control = list(
+                                 tolower = TRUE,
+                                 removeNumbers = TRUE,
+                                 stopwords = TRUE,
+                                 stripWhitespace = TRUE))
+dim(DTM_tag)
+
+# Inspect the first 5 elements
+tm::inspect(DTM_tag[,
+                    1:5])
+
+# Calculate TF-IDF weights
+DTM_tfidf <- weightTfIdf(DTM_tag)
+DTM_tfidf <- removeSparseTerms(DTM_tfidf,
+                               0.98)
+
+# Convert to tibble
+m <- as.matrix(DTM_tfidf)
+DTM_tfidf_tbl <- as_tibble(m)
+movieId <- tb$movieId
+combined <- cbind(movieId,
+                  DTM_tfidf_tbl)
+
+# Convert to long format
+DTM_tag_tidy <- pivot_longer(combined,
+                             cols = !movieId,
+                             names_to = "word",
+                             values_to = "weight")
+```
+
+> We changed the tag column to lower cases to make the futur matrix more interpretable.
+We removed numbers from the text, to avoid any irrelevant terms.
+We removed common words like "and" or "the" to reduce the size of the matrix.
+We did not remove punctuation marks as we took care of that during the Data Preprocessing part.
+We removed white spaces from the text, to avoid unnecessarily splits in the matrix.
+
+> When choosing between DTM-TF, DTM-TFIDF or bigram based DTM; we tried DTM-TF at first but the top 5 words were quite commun. Therefore our PCA analyses would be too vague and irrelevant. To solve this issue we decided to go for DTM-TFIDF as it avoid getting a sparse matrix which would make the next steps more time consuming. Another advantage of DTM-TFIDF is that it measures of how much information a term provides instead of how frequently it is used, giving us a more impactful analysis. To do that it gives higher weight to terms that are both frequent within a document and rare across movies.
+
+
+## Visualisations
+
+```{r Visualisations, warning = FALSE, error = FALSE, message = FALSE}
+# Order by frequencies
+wordCountDoc_tag <- DTM_tag_tidy %>%
+  group_by(word) %>%
+  summarise(total_tag = sum(weight)) %>%
+  arrange(desc(total_tag)) 
+
+print(wordCountDoc_tag %>% top_n(5))
+
+# Plot bar chart
+DTM_tag_tidy %>%
+  group_by(word) %>%
+  summarise(total_tag = sum(weight)) %>%
+  arrange(desc(total_tag)) %>%
+  top_n(10) %>%
+  ggplot(aes(x = reorder(word,
+                         total_tag),
+             y = total_tag,
+             fill = word)) +
+  geom_bar(stat = "identity") +
+  theme(legend.position = "none",
+        axis.text = element_text(size = 12),
+        plot.title = element_text(size = 15,
+                                  face = "bold",
+                                  colour = "red"),
+        axis.title = element_text(size = 12)) +
+  coord_flip() +
+  labs(title = "Top 10 Most Frequent Words in Tags dataset",
+       x = "",
+       y = "Count") 
+
+# Obtain Wordclouds
+wordcloud(words = wordCountDoc_tag$word, 
+          freq = wordCountDoc_tag$total_tag, 
+          max.words = 150,
+          scale = c(3, 0.5), 
+          random.order = FALSE,
+          rot.per = 0.35,
+          colors = brewer.pal(8,
+                              "RdBu"))
+```
+
+
+# Principle Component Analysis
+
+Now that you have a DTM, we can use it in an unsupervised machine learning algorithm that can reduce the dimensionality of the data. 
+Specifically we have terms/words that describe each movie, however likely we have way too many columns and should only use a reduced amount of columns in our further analysis.
+For example you may wish to run a classification algorithm such as an SVM as a final step in order to be able to create a model that can predict a movie's rating based on some features, including the features produced as a result of running the PCA. 
+
+Therefore your next task is to run the PCA on the Document Term Matrix that you designed above.
+As a result of the PCA you should provide the PC coordinates/scores to be used as features in Part 3.
+Crucially, you must decide on the number of these new columns (containing the PC scores) that should be used, i.e. report what dimensionality you started with (your final DTM number of columns) and what dimensionality you decided to reduce the data to (number of PCs you decide to keep).
+Report your key decisions:
+- PCA data preprocessing 
+- Analysis of the variance
+- Reasons for keeping the number of PCs you decided to keep
+As the final step ensure to extract and save the relevant number of new columns (containing the PC scores).
+
+```{r PCA, warning = FALSE, error = FALSE, message = FALSE}
+# Data class
+class(DTM_tfidf)
+
+# Dimensionality
+dims <- dim(DTM_tfidf)
+
+# Normalisation
+data <- scale(DTM_tfidf,
+              center = TRUE,
+              scale = TRUE)
+
+# PCA Analysis
+pca <- prcomp(data,
+              center = FALSE,
+              scale. = FALSE)
+
+# What form is pca
+typeof(pca)
+
+# Std dev (sq roots of eigenvalues of cov matrix) - in descending order
+pca$sdev
+
+# Length
+length(pca$sdev)
+
+# Loadings - basis vectors / eigenvectors / PCs (matrix DxD)
+pca$rotation
+
+# Dimensionality
+dim(pca$rotation)
+
+# Centering - provides centering info extracted from X attributes data
+pca$center
+
+# Scaling - provides scaling info extracted from X attributes data
+pca$scale
+
+# Rotate data coordinates
+pca$x[1:3,
+      1:3] 
+
+# Dimensionality
+dims <- dim(pca$x)
+```
+
+
+## Visualisation
+
+```{r Data visualisations, warning = FALSE, error = FALSE, message = FALSE}
+N <- dims[1] # number of observations
+D <- dims[2] # number of features
+
+# Variance Analysis
+summary(pca)$importance 
+
+# Plot to decide how much data to keep
+VE <- pca$sdev^2
+PVE <- VE / sum(VE) * 100
+CPVE <- cumsum(PVE)
+df <- data.frame(PC = c(1:D), 
+                 var_explained = VE,
+                 cum_sum_PVE = CPVE)
+
+# Variance explained
+M <- D
+df[1:M,] %>% # select M PCs (rows) and all columns of the dataframe to pass into ggplot
+  ggplot(aes(x = PC, y = var_explained)) +
+  geom_point(size = 4) +
+  geom_line() +
+  geom_hline(yintercept = 1,
+             linetype = "dashed",
+             color = "red",
+             size = 1.2) +
+  labs(x = "PC Number",
+       y = "VE", 
+       title = "Scree Plot", 
+       subtitle = "PCA on USArrests Data") +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 15,
+                                  face = "bold",
+                                  color = "blue"),
+        plot.title = element_text(size = 18,
+                                  color = "blue"),
+        plot.subtitle = element_text(size = 15,
+                                     color = "blue")
+  )
+```
+
+
+## PCA adjustment
+
+```{r PCA filtering, warning = FALSE, error = FALSE, message = FALSE}
+# Filter for the most relevant PC
+df_adjusted <- df %>% 
+  filter(PC < 50)
+```
+
+> Based of the plot we filtered for less than 50, as we can clearly see helbow chart. We want to determine how many principal components to keep in the dataset. The plot demonstrates a sharp fall in the amount of variation described by the first few principal components, followed by a more gradual decline. It seems like the first 50 PC explain most of the variance in the dataset.
