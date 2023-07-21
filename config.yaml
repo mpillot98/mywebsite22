@@ -121,7 +121,7 @@ params:
       - image: de.jpg
         subtitle: Data engineering
         title: Machine learning
-        url: blogs/data_science
+        url: blogs/part_1
 #      - image: ml.jpg
 #        subtitle: Part 2: ML
 #        title: Machine learning
