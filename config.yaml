@@ -118,10 +118,10 @@ params:
         subtitle: Homicide – a concern across demography?
         title: Data Visualisation and Story Telling
         url: docs/Homicide_Poster.pdf
-#      - image: de.jpg
-#        subtitle: Part 1: Data engineering
-#        title: Machine learning
-#        url: blogs/part_1
+      - image: de.jpg
+        subtitle: Part 1: Data engineering
+        title: Machine learning
+        url: blogs/data_science
 #      - image: ml.jpg
 #        subtitle: Part 2: ML
 #        title: Machine learning
