@@ -74,12 +74,12 @@ params:
         url: blogs/homework_energy
       - name: Data science
         url: blogs/data_science
-      - name: Machine learning: Data engineering
-        url: blogs/part_1
-      - name: Machine learning: ML
-        url: blogs/part_2
-      - name: Machine learning:SVM
-        url: blogs/part_3
+#      - name: Machine learning: Data engineering
+#        url: blogs/part_1
+#      - name: Machine learning: ML
+#        url: blogs/part_2
+#      - name: Machine learning:SVM
+#        url: blogs/part_3
     menu: Menu
     subtitle: By HTML5 Up
     title: Forty
