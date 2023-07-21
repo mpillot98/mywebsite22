@@ -119,7 +119,7 @@ params:
         title: Data Visualisation and Story Telling
         url: docs/Homicide_Poster.pdf
       - image: de.jpg
-        subtitle: Part 1: Data engineering
+        subtitle: Data engineering
         title: Machine learning
         url: blogs/data_science
 #      - image: ml.jpg
