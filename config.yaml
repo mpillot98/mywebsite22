@@ -22,8 +22,8 @@ params:
         title: Email
     enable: yes
     phone:
-      - phone: (+41) 0 78 732 19 19
-        title: Phone
+#      - phone: (+41) 0 78 732 19 19
+#        title: Phone
   custom_css: []
   custom_js: []
   description: Your description
@@ -74,12 +74,12 @@ params:
         url: blogs/homework_energy
       - name: Data science
         url: blogs/data_science
-#      - name: Machine learning: Data engineering
-#        url: blogs/part_1
-#      - name: Machine learning: ML
-#        url: blogs/part_2
-#      - name: Machine learning:SVM
-#        url: blogs/part_3
+      - name: Data engineering
+        url: blogs/part_1.html
+      - name: Principal component analysis
+        url: blogs/part_2
+      - name: Support vector machines
+        url: blogs/part_3.html
     menu: Menu
     subtitle: By HTML5 Up
     title: Forty
@@ -121,15 +121,15 @@ params:
       - image: de.jpg
         subtitle: Data engineering
         title: Machine learning
-        url: blogs/part_1
-#      - image: ml.jpg
-#        subtitle: Part 2: ML
-#        title: Machine learning
-#        url: blogs/part_2
-#      - image: svm.jpg
-#        subtitle: Part 3: SVM
-#        title: Machine learning
-#        url: blogs/part_3
+        url: blogs/part_1.html
+      - image: pca.jpg
+        subtitle: Principal component analysis
+        title: Machine learning
+        url: blogs/part_2
+      - image: svm.jpg
+        subtitle: Support vector machines
+        title: Machine learning
+        url: blogs/part_3.html
 
   two:
     buttonText: Get Started

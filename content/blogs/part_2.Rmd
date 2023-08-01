@@ -54,7 +54,7 @@ Lastly, remove any special characters from all of the tags.
 You may need to research the solution to this (an example solution could contain gsub() function). 
 
 ```{r Read Data, warning = FALSE, error = FALSE, message = FALSE}
-setwd("C:/Users/manon/Desktop/Machine Learning for Big Data/Project/Part 1/ml-25m")
+setwd("C:/Users/manon/Desktop/Applied statistics/mywebsite22/data")
 
 list.files()
 rm(list = ls())
